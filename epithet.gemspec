@@ -3,7 +3,7 @@ require_relative "lib/epithet/version"
 Gem::Specification.new do |spec|
   spec.name = "epithet"
   spec.version = Epithet::VERSION
-  spec.summary = "External identifiers with reversible, authenticated obfuscation."
+  spec.summary = "External base58 identifiers with reversible, authenticated obfuscation."
   spec.description = "Epithet generates stable, prefixed, Base58 identifiers from 64-bit integers using AES and HMAC."
   spec.authors = ["Josh Goodall"]
   spec.email = ["inopinatus@hey.com"]
