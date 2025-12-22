@@ -1,0 +1,12 @@
+*.gem
+.bundle
+.gem
+vendor
+pkg
+checksums
+tmp
+doc
+rdoc
+.byebug_history
+Gemfile.lock
+.DS_Store
