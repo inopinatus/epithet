@@ -42,7 +42,9 @@ user_epithet.decode(param)
 # => 42
 ```
 
-Configuration at initialisation is recommended, because deriving key material from the passphrase uses scrypt, and is consequently expensive. The `salt:` is optional; it's included when deriving the subkey material for obfuscating and tamper resistance, and may be useful for additional context discrimination or during secrets rotation. See the Epithet rdoc for the full set of configuration options.
+Configuration at initialisation is recommended, because deriving key material from the passphrase uses scrypt, and is consequently expensive. The `salt:` is optional; it's included when deriving the subkey material for obfuscating and tamper resistance, and may be useful for additional context discrimination or during secrets rotation.
+
+Refer to the Epithet rdoc for the full set of configuration options.
 
 Note that `decode` returns `nil` when authentication fails and raises ArgumentError on invalid formats.
 
