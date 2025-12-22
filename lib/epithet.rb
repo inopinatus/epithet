@@ -124,37 +124,27 @@ class Epithet
     #
     # At minimum, one of `passphrase:` or `keygen:` is required.
     # Configuration via `passphrase` is recommended.
-    # If passing an existing key generator, the object must respond to `#generate(info, salt, length)`.
     #
-    # #### Cryptographic choices
+    # If passing an existing key generator, the object must respond to `generate(info, salt, length)`
+    # and return a byte string suitable for use with OpenSSL cryptographic primitives.
     #
-    # The default cipher & digest are conservatively chosen as `aes-256-ecb` and `sha256`.
-    # A cryptologic discussion of alternatives is outside the scope of this documentation.
-    #
-    # Streaming ciphers (e.g. chacha20) or block ciphers in streaming modes (e.g. aes-256-ctr)
-    # must not be used, since no nonce/IV value is included in the output message, making them
-    # trivially vulnerable to known-plaintext attacks in this usage.
-    #
-    # This library is intended for high-performance obfuscation of sequences, deflection of
-    # casual tampering, and conversion to a compact, stable wire parameter format.  Although
-    # it uses standard cryptographic primitives to do so, the design trade-off of the compact
-    # format means it is not intended to defeat nation-state security services, talented
-    # cryptographers, or even a well-resourced enterprise.  Use at your own risk.
-    #
-    # Cipher modes requiring a nonce or IV may be rejected at configuration time, to prevent
-    # inadvertent misconfiguration.
+    # See [`SECURITY.md`](SECURITY.md) for discussion of ciphers & digests.
     #
     # #### Multiple configurations
     #
     # You can produce & store configurations, thus:
     #
-    #     cfg = Epithet::Config.new(keygen: my_key_gen, cipher: 'stronk-512-jcb', digest: 'md7')
+    #     cfg = Epithet::Config.new(
+    #       keygen: my_key_gen,
+    #       cipher: 'stronk-512-jcb',
+    #       digest: 'md7'
+    #     )
     #
     # and either install this as default with
     #
     #     Epithet.configure(cfg)
     #
-    # or pass it in to `Epithet::new` as
+    # or pass it to `Epithet::new` as
     #
     #     acct_epithet = Epithet.new('acct', config: cfg)
     #
@@ -188,6 +178,16 @@ class Epithet
   # Key derivation helper
   class Keygen
     # Default parameters for scrypt.
+    #
+    # ```ruby
+    # DEFAULT_SCRYPT_PARAMS = {
+    #   salt: 'epithet-default',
+    #   N: 1<<17,
+    #   r: 8,
+    #   p: 1,
+    #   length: 32
+    # }.freeze
+    # ```
     DEFAULT_SCRYPT_PARAMS = {
       salt: 'epithet-default',
       N: 1<<17,
@@ -218,6 +218,7 @@ class Epithet
 
   # Fixed-length Base58 codec for a fixed-size block.
   class Block58
+    # `= "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"`
     Alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
 
     # Create a codec for a block size in bytes.
@@ -240,8 +241,9 @@ class Epithet
     end
 
     # Encode a non-negative Integer to fixed-length Base58.
-    # Using divmod+setbyte is faster than Integer#digits under YJIT, and about equal without.
     def i2s(int)
+      # Using divmod+setbyte is faster than Integer#digits under YJIT,
+      # and about equal in plain MRI.
       alphabet = @alphabet
       out = @blank.dup
       idx = @size - 1
