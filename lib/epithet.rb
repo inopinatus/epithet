@@ -46,7 +46,7 @@ class Epithet
   def initialize(prefix, config: Epithet.defaults)
     prefix = String(prefix)
     key_salt = [prefix.bytesize, prefix, config.salt.bytesize, config.salt].pack('Q>Z*Q>Z*')
-    @block58 = Block58.new(16, alphabet: config.alphabet)
+    @block58 = Block58.build(16, alphabet: config.alphabet)
     @prefix_s = "#{prefix}#{config.separator}"
 
     cipher_key_len = OpenSSL::Cipher.new(config.cipher).key_len
@@ -74,12 +74,13 @@ class Epithet
     @prefix_s + @block58.i2s(ct)
   end
 
-  # Decode a prefixed or raw Base58 string to an Integer.
+  # Decode a prefixed or raw Base58 string to an Integer. Raw inputs are
+  # recognised by their exact payload length.
   #
   # Returns the Integer on success, nil if authentication fails.
   # Raises ArgumentError on invalid wire format (see Block58#valid?).
   def decode(s)
-    s = s.delete_prefix(@prefix_s)
+    s = s.delete_prefix(@prefix_s) unless s.bytesize == @block58.size
     raise ArgumentError, 'unexpected format' unless @block58.valid?(s)
 
     d = @decryptor.dup
@@ -104,7 +105,10 @@ class Epithet
     # #### Examples
     #
     #     # As it might appear in an initializer
-    #     Epithet.configure(passphrase: ENV.fetch('EPITHET_PASSPHRASE'))
+    #     Epithet.configure(
+    #       passphrase: ENV.fetch('EPITHET_PASSPHRASE'),
+    #       scrypt: { salt: "#{MyApp.name}/#{MyApp.env}" }
+    #     )
     #
     #     # Retaining already-configured passphrase but updating salt,
     #     # and using a custom separator.
@@ -117,7 +121,7 @@ class Epithet
     # #### Options
     #
     # *   `:passphrase` - Install new key generator with scrypt-derived key material
-    # *   `:scrypt` - Params for scrypt; omit to use `Keygen::DEFAULT_SCRYPT_PARAMS`
+    # *   `:scrypt` - Params for scrypt, merged over `Keygen::DEFAULT_SCRYPT_PARAMS`
     # *   `:keygen` - Install an existing key generator
     # *   `:cipher` - Must be a 128-bit block cipher in ECB mode or equivalent; omit for standard `aes-256-ecb`
     # *   `:digest` - Must be >= 64 bits; omit for standard `sha256`
@@ -162,11 +166,11 @@ class Epithet
 
     def initialize(opts = {})
       opts = opts.dup
-      @separator = String(opts.delete(:separator) { '_' })
-      @salt = String(opts.delete(:salt))
-      @alphabet = String(opts.delete(:alphabet) { Block58::Alphabet })
-      @cipher = opts.delete(:cipher) || 'aes-256-ecb'
-      @digest = opts.delete(:digest) || 'sha256'
+      @separator = -String(opts.delete(:separator) { '_' })
+      @salt = -String(opts.delete(:salt))
+      @alphabet = -String(opts.delete(:alphabet) { Block58::Alphabet })
+      @cipher = -(opts.delete(:cipher) || 'aes-256-ecb')
+      @digest = -(opts.delete(:digest) || 'sha256')
 
       cipher = OpenSSL::Cipher.new(@cipher)
       raise ArgumentError, 'separator intersects alphabet' if @separator.bytes.intersect?(@alphabet.bytes)
@@ -177,8 +181,9 @@ class Epithet
       @keygen = opts.delete(:keygen) || Keygen.new(
         passphrase: opts.delete(:passphrase),
         digest: @digest,
-        scrypt: opts.delete(:scrypt) || Keygen::DEFAULT_SCRYPT_PARAMS)
+        scrypt: opts.delete(:scrypt) || {})
       raise ArgumentError, "unused option(s) #{opts.keys}" unless opts.empty?
+      freeze
     end
   end
 
@@ -204,13 +209,15 @@ class Epithet
     }.freeze
 
     # Create a new key generator from either high-entropy key material, or a supplied passphrase.
-    def initialize(ikm: nil, passphrase: nil, digest: 'sha256', scrypt: DEFAULT_SCRYPT_PARAMS)
+    # Supplied scrypt params are merged over DEFAULT_SCRYPT_PARAMS.
+    def initialize(ikm: nil, passphrase: nil, digest: 'sha256', scrypt: {})
       if (passphrase.nil? && ikm.nil?) || (!passphrase.nil? && !ikm.nil?)
         raise ArgumentError, 'keygen requires either ikm or passphrase'
       end
 
-      @ikm = ikm || OpenSSL::KDF.scrypt(passphrase, **scrypt)
-      @digest = digest
+      @ikm = (ikm ? ikm.b : OpenSSL::KDF.scrypt(passphrase, **DEFAULT_SCRYPT_PARAMS, **scrypt)).freeze
+      @digest = -String(digest)
+      freeze
     end
 
     def inspect
@@ -224,15 +231,27 @@ class Epithet
   end
 
   # Fixed-length Base58 codec for a fixed-size block.
+  #
+  # Obtain codecs via Block58::build, which selects the fastest variant for
+  # the block size, an unrolled decoder for 16-byte blocks, or the generic
+  # chunked decoder otherwise.
   class Block58
     # `= '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'`
     Alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
+
+    POW58 = Array.new(11) { 58**_1 }.freeze # :nodoc:
+
+    attr_reader :size
+
+    # Same as ::new but may select a tuned subclass for performance.
+    def self.build(block_size, ...) = (block_size == 16 ? Unrolled16 : self).new(block_size, ...)
 
     # Create a codec for a block size in bytes.
     #
     # The alphabet must be 58 distinct bytes in ascending order, so that
     # lexicographic order agrees with numeric order.
     def initialize(block_size, alphabet: Alphabet)
+      raise ArgumentError, 'invalid block size' unless Integer === block_size && block_size > 0
       @alphabet = alphabet.b.freeze
       raise ArgumentError, 'invalid alphabet length' unless @alphabet.bytesize == 58
       raise ArgumentError, 'alphabet not strictly ascending' unless @alphabet.bytes.each_cons(2).all? { _2 > _1 }
@@ -272,44 +291,78 @@ class Epithet
     # Decode a fixed-length Base58 string to an Integer.
     # Assumes the input passes `#valid?`. Wraps at 58**size on the i2s round trip.
     def s2i(str)
-      # rubocop:disable Style/NumericLiterals, Lint/AmbiguousOperatorPrecedence, Layout
-      #
-      # By unrolling coefficients, this is ~8x faster than Horner's scheme
+      # Chunking intermediate results into 64-bit integers is ~5x faster
+      # under YJIT than Horner's scheme
       #
       #   str.each_byte.inject(0) { _1 * 58 + @lut[_2] }
       #
-      # at computing the inner product when using YJIT, by chunking
-      # intermediate results into 64-bit integers.
+      # at computing the inner product.
       lut = @lut
+      size = @size
+      pow = POW58
+      acc = 0
+      pos = 0
+      while pos < size
+        n = size - pos
+        n = 10 if n > 10
+        chunk = 0
+        i = 0
+        while i < n
+          chunk = (chunk * 58) + lut.getbyte(str.getbyte(pos))
+          pos += 1
+          i += 1
+        end
+        acc = (acc * pow[n]) + chunk
+      end
+      acc
+    end
 
-      acc0 = lut.getbyte(str.getbyte(0)) * 7427658739644928 +
-             lut.getbyte(str.getbyte(1)) * 128063081718016 +
-             lut.getbyte(str.getbyte(2)) * 2207984167552 +
-             lut.getbyte(str.getbyte(3)) * 38068692544 +
-             lut.getbyte(str.getbyte(4)) * 656356768 +
-             lut.getbyte(str.getbyte(5)) * 11316496 +
-             lut.getbyte(str.getbyte(6)) * 195112 +
-             lut.getbyte(str.getbyte(7)) * 3364 +
-             lut.getbyte(str.getbyte(8)) * 58 +
-             lut.getbyte(str.getbyte(9))
+    # Specialised decoder for 16-byte blocks (22 digits) with a fully unrolled inner product.
+    class Unrolled16 < Block58
+      def initialize(...)
+        super
+        raise ArgumentError, 'unrolled codec requires a 16-byte block' unless @size == 22
+      end
 
-      acc1 = lut.getbyte(str.getbyte(10)) * 7427658739644928 +
-             lut.getbyte(str.getbyte(11)) * 128063081718016 +
-             lut.getbyte(str.getbyte(12)) * 2207984167552 +
-             lut.getbyte(str.getbyte(13)) * 38068692544 +
-             lut.getbyte(str.getbyte(14)) * 656356768 +
-             lut.getbyte(str.getbyte(15)) * 11316496 +
-             lut.getbyte(str.getbyte(16)) * 195112 +
-             lut.getbyte(str.getbyte(17)) * 3364 +
-             lut.getbyte(str.getbyte(18)) * 58 +
-             lut.getbyte(str.getbyte(19))
+      # Decode a fixed-length Base58 string to an Integer.
+      # Assumes the input passes `#valid?`.
+      def s2i(str)
+        # rubocop:disable Style/NumericLiterals, Lint/AmbiguousOperatorPrecedence, Layout
+        #
+        # By unrolling the chunks against literal coefficients, this is ~1.6x
+        # faster under YJIT than the generic chunked Block58#s2i, and ~8x
+        # faster than Horner's scheme.
+        lut = @lut
 
-                               lut.getbyte(str.getbyte(21)) +
-                          58 * lut.getbyte(str.getbyte(20)) +
-                        3364 * acc1 +
-      1449225352009601191936 * acc0
+        acc0 = lut.getbyte(str.getbyte(0)) * 7427658739644928 +
+               lut.getbyte(str.getbyte(1)) * 128063081718016 +
+               lut.getbyte(str.getbyte(2)) * 2207984167552 +
+               lut.getbyte(str.getbyte(3)) * 38068692544 +
+               lut.getbyte(str.getbyte(4)) * 656356768 +
+               lut.getbyte(str.getbyte(5)) * 11316496 +
+               lut.getbyte(str.getbyte(6)) * 195112 +
+               lut.getbyte(str.getbyte(7)) * 3364 +
+               lut.getbyte(str.getbyte(8)) * 58 +
+               lut.getbyte(str.getbyte(9))
 
-      # rubocop:enable Style/NumericLiterals, Lint/AmbiguousOperatorPrecedence, Layout
+        acc1 = lut.getbyte(str.getbyte(10)) * 7427658739644928 +
+               lut.getbyte(str.getbyte(11)) * 128063081718016 +
+               lut.getbyte(str.getbyte(12)) * 2207984167552 +
+               lut.getbyte(str.getbyte(13)) * 38068692544 +
+               lut.getbyte(str.getbyte(14)) * 656356768 +
+               lut.getbyte(str.getbyte(15)) * 11316496 +
+               lut.getbyte(str.getbyte(16)) * 195112 +
+               lut.getbyte(str.getbyte(17)) * 3364 +
+               lut.getbyte(str.getbyte(18)) * 58 +
+               lut.getbyte(str.getbyte(19))
+
+                                 lut.getbyte(str.getbyte(21)) +
+                            58 * lut.getbyte(str.getbyte(20)) +
+                          3364 * acc1 +
+        1449225352009601191936 * acc0
+
+        # rubocop:enable Style/NumericLiterals, Lint/AmbiguousOperatorPrecedence, Layout
+      end
     end
   end
 end

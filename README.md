@@ -21,12 +21,14 @@ gem install epithet
 
 ## Usage
 
+With `EPITHET_PASSPHRASE="example only"`:
+
 ```ruby
 require 'epithet'
 
 def epithet_initialize
   Epithet.configure(
-    passphrase: ENV.fetch('EPITHET_PASSPHRASE') { 'example only' },
+    passphrase: ENV.fetch('EPITHET_PASSPHRASE'),
     salt: 'v1'
   )
 end

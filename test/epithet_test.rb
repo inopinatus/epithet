@@ -95,4 +95,14 @@ class EpithetTest < Minitest::Test
     assert_equal 42, user.decode(payload)
     assert_nil acct.decode(payload)
   end
+
+  def test_raw_decode_raw_with_empty_separator
+    cfg = Epithet::Config.new(keygen: Cfg.keygen, separator: nil)
+    epithet = Epithet.new('1', config: cfg)
+    id = (0..).find { |i| epithet.encode(i).start_with?('11') }
+    param = epithet.encode(id)
+
+    assert_equal id, epithet.decode(param)
+    assert_equal id, epithet.decode(param.delete_prefix('1'))
+  end
 end

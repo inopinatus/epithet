@@ -25,6 +25,10 @@ Metrics/PerceivedComplexity:
 Metrics/MethodLength:
   Max: 25
 
+Metrics/ClassLength:
+  Exclude:
+    - test/**/*.rb
+
 Naming/ConstantName:
   Exclude:
     - lib/epithet.rb

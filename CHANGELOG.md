@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.1.0 - 2026-07-14
+
+- Freeze config strings upon object initialization
+- Merge custom scrypt params
+- Block58 now defaults to a generic s2i that handles any block size
+- Optimised 16-byte unrolled s2i selected via `Block58::build`
+- Recognize unprefixed decodes by payload length
+- Fix github CI warnings
+- Write notes on salt & improve examples
+
 ## 1.0.0 - 2026-07-14
 
 ### Breaking changes

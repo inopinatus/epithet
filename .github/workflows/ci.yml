@@ -15,10 +15,31 @@ jobs:
       matrix:
         ruby: ["3.3", "3.4", "4.0"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: ${{ matrix.ruby }}
           bundler-cache: true
       - run: bundle exec rake test
       - run: bundle exec rubocop
+
+  test-32bit:
+    name: test (${{ matrix.ruby }} · 32-bit)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        ruby: ["3.3", "3.4", "4.0"]
+    steps:
+      - uses: actions/checkout@v5
+      - name: assert 32-bit interpreter
+        run: |
+          docker run --rm --platform linux/386 \
+            i386/ruby:${{ matrix.ruby }} \
+            ruby -e 'puts "#{RUBY_DESCRIPTION}, #{1.size * 8}-bit word"; abort "not 32-bit" unless 1.size == 4'
+      - name: test under 32-bit Ruby
+        run: |
+          docker run --rm --platform linux/386 \
+            -v "$PWD:/work" -w /work \
+            i386/ruby:${{ matrix.ruby }} \
+            sh -c 'bundle install && bundle exec rake test'
