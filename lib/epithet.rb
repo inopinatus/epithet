@@ -43,14 +43,14 @@ class Epithet
   #
   def initialize(prefix, config: Epithet.defaults)
     prefix = String(prefix)
-    key_salt = [prefix.bytesize, prefix, config.salt.bytesize, config.salt].pack("Q>Z*Q>Z*")
+    key_salt = [prefix.bytesize, prefix, config.salt.bytesize, config.salt].pack('Q>Z*Q>Z*')
     @block58 = Block58.new(16)
     @prefix_s = "#{prefix}#{config.separator}"
 
     cipher_key_len = OpenSSL::Cipher.new(config.cipher).key_len
     digest_key_len = OpenSSL::Digest.new(config.digest).block_length
-    cipher_key = config.keygen.generate("epithet:ecb", key_salt, cipher_key_len)
-    digest_key = config.keygen.generate("epithet:mac", key_salt, digest_key_len)
+    cipher_key = config.keygen.generate('epithet:ecb', key_salt, cipher_key_len)
+    digest_key = config.keygen.generate('epithet:mac', key_salt, digest_key_len)
 
     @encryptor = OpenSSL::Cipher.new(config.cipher).encrypt.tap { |c| c.key = cipher_key; c.padding = 0 }
     @decryptor = OpenSSL::Cipher.new(config.cipher).decrypt.tap { |c| c.key = cipher_key; c.padding = 0 }
@@ -60,7 +60,7 @@ class Epithet
   # Encode a 64-bit unsigned Integer to a prefixed Base58 string.
   # Raises ArgumentError on invalid values.
   def encode(id)
-    raise ArgumentError, "not a 64-bit unsigned integer" unless Integer === id && id.size == 8 && id >= 0
+    raise ArgumentError, 'not a 64-bit unsigned integer' unless Integer === id && id.size == 8 && id >= 0
 
     e = @encryptor.dup
     h = @hmac.dup
@@ -78,7 +78,7 @@ class Epithet
   # Raises ArgumentError on invalid formats.
   def decode(s)
     s = s.delete_prefix(@prefix_s)
-    raise ArgumentError, "unexpected format" unless @block58.valid?(s)
+    raise ArgumentError, 'unexpected format' unless @block58.valid?(s)
 
     d = @decryptor.dup
     h = @hmac.dup
@@ -149,12 +149,13 @@ class Epithet
     #     acct_epithet = Epithet.new('acct', config: cfg)
     #
     def configure(opts) = @defaults = Config === opts ? opts : Config.new(opts)
-    def defaults() = @defaults || raise(RuntimeError, "no Epithet defaults configured")
+    def defaults = @defaults || raise('no Epithet defaults configured')
   end
 
   # Class for passing around preset configs. See Epithet::configure for options.
   class Config
     attr_reader :keygen, :salt, :separator, :cipher, :digest # :nodoc:
+
     def initialize(opts = {})
       opts = opts.dup
       @separator = String(opts.delete(:separator) { '_' })
@@ -182,7 +183,7 @@ class Epithet
     # ```ruby
     # DEFAULT_SCRYPT_PARAMS = {
     #   salt: 'epithet-default',
-    #   N: 1<<17,
+    #   N: 1 << 17,
     #   r: 8,
     #   p: 1,
     #   length: 32
@@ -190,16 +191,16 @@ class Epithet
     # ```
     DEFAULT_SCRYPT_PARAMS = {
       salt: 'epithet-default',
-      N: 1<<17,
+      N: 1 << 17,
       r: 8,
       p: 1,
       length: 32
     }.freeze
 
     # Create a new key generator from either high-entropy key material, or a supplied passphrase.
-    def initialize(ikm: nil, passphrase: nil, digest: "sha256", scrypt: DEFAULT_SCRYPT_PARAMS)
+    def initialize(ikm: nil, passphrase: nil, digest: 'sha256', scrypt: DEFAULT_SCRYPT_PARAMS)
       if (passphrase.nil? && ikm.nil?) || (!passphrase.nil? && !ikm.nil?)
-        raise ArgumentError, "keygen requires either ikm or passphrase"
+        raise ArgumentError, 'keygen requires either ikm or passphrase'
       end
 
       @ikm = ikm || OpenSSL::KDF.scrypt(passphrase, **scrypt)
@@ -219,12 +220,12 @@ class Epithet
   # Fixed-length Base58 codec for a fixed-size block.
   class Block58
     # `= "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"`
-    Alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
+    Alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
 
     # Create a codec for a block size in bytes.
     def initialize(block_size, alphabet: Alphabet)
       @alphabet = alphabet.b.freeze
-      raise ArgumentError, "invalid alphabet length" unless @alphabet.bytesize == 58
+      raise ArgumentError, 'invalid alphabet length' unless @alphabet.bytesize == 58
       @size = ((block_size * 8) / Math.log2(58)).ceil(0)
       @charsel = @alphabet.gsub(/[\^\-\\]/, '\\\\\&').freeze
       @blank = @alphabet[0] * @size
@@ -259,6 +260,8 @@ class Epithet
     # Decode a fixed-length Base58 string to an Integer.
     # Assumes the input passes `#valid?`.
     def s2i(str)
+      # rubocop:disable Style/NumericLiterals, Lint/AmbiguousOperatorPrecedence, Layout
+      #
       # By unrolling coefficients, this is ~8x faster than Horner's scheme
       #
       #   str.each_byte.inject(0) { _1 * 58 + @lut[_2] }
@@ -293,6 +296,8 @@ class Epithet
                           58 * lut.getbyte(str.getbyte(20)) +
                         3364 * acc1 +
       1449225352009601191936 * acc0
+
+      # rubocop:enable Style/NumericLiterals, Lint/AmbiguousOperatorPrecedence, Layout
     end
   end
 end

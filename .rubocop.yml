@@ -1,0 +1,75 @@
+AllCops:
+  NewCops: enable
+  TargetRubyVersion: 4.0
+  SuggestExtensions: false
+
+Gemspec/RequiredRubyVersion:
+  Enabled: false
+
+Gemspec/DevelopmentDependencies:
+  EnforcedStyle: gemspec
+
+Layout/EmptyLineAfterGuardClause:
+  Exclude:
+    - lib/epithet.rb
+
+Layout/MultilineMethodCallBraceLayout:
+  Enabled: false
+
+Metrics/AbcSize:
+  Enabled: false
+
+Metrics/CyclomaticComplexity:
+  Max: 9
+
+Metrics/PerceivedComplexity:
+  Max: 9
+
+Metrics/MethodLength:
+  Max: 25
+
+Naming/ConstantName:
+  Exclude:
+    - lib/epithet.rb
+
+Naming/MethodParameterName:
+  MinNameLength: 1
+
+Style/StringLiterals:
+  EnforcedStyle: single_quotes
+
+Style/CaseEquality:
+  Enabled: false
+
+Style/FormatString:
+  EnforcedStyle: percent
+
+Style/NumberedParametersLimit:
+  Max: 2
+
+Style/NumericPredicate:
+  Enabled: false
+
+Style/Semicolon:
+  Exclude:
+    - lib/epithet.rb
+
+Style/RedundantFetchBlock:
+  Exclude:
+    - examples/**/*.rb
+
+Style/CharacterLiteral:
+  Exclude:
+    - test/**/*.rb
+
+Style/StringConcatenation:
+  Exclude:
+    - test/**/*.rb
+
+Style/TrailingCommaInArrayLiteral:
+  Exclude:
+    - test/**/*.rb
+
+Style/TrailingCommaInHashLiteral:
+  Exclude:
+    - test/**/*.rb
