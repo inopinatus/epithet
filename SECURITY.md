@@ -28,10 +28,10 @@ streaming modes (e.g. aes-256-ctr) must not be used; no nonce/IV value is includ
 making them trivially vulnerable to known-plaintext attacks.  These, CBC/OCB, and other IV/nonce
 modes may also be rejected by Epithet's guardrails.
 
-If configuring alternative digest algorithms, note that any algorithm may be accepted whenever they
-it produces at least 64 bits of output. HMAC does not rest on collision resistance, so even dated
-digests are not trivially forgeable here, but algorithms other than the defaults step outside the
-supported security profile.  If you must stray, stay within the SHA-2 family.
+If configuring alternative digest algorithms, note that any algorithm may be accepted that produces
+at least 64 bits of output.  HMAC does not rest on collision resistance, so even dated digests are
+not trivially forgeable here, but algorithms other than the defaults step outside the supported
+profile.  If you must stray, stay within the SHA-2 family.
 
 A weak, guessable, or disclosed passphrase will compromise the obfuscation and tamper-detection
 properties.
