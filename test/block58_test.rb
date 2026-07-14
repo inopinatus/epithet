@@ -48,4 +48,15 @@ class Block58Test < Minitest::Test
     refute @block.valid?(good + '1')
     refute @block.valid?(good.sub('1', '0'))
   end
+
+  def test_valid_rejects_out_of_range
+    assert @block.valid?('YcVfxkQb6JRzqk5kF2tNLv') # (1 << 128) - 1
+    refute @block.valid?('YcVfxkQb6JRzqk5kF2tNLw') # (1 << 128)
+    refute @block.valid?('z' * 22)
+  end
+
+  def test_alphabet_must_be_strictly_ascending
+    assert_raises(ArgumentError) { Epithet::Block58.new(16, alphabet: Epithet::Block58::Alphabet.reverse) }
+    assert_raises(ArgumentError) { Epithet::Block58.new(16, alphabet: Epithet::Block58::Alphabet.sub('2', '1')) }
+  end
 end

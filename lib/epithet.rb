@@ -13,6 +13,8 @@ require 'openssl'
 # Pseudo-AEAD is via `AES-256-ECB(id(8B) + HMAC-SHA256(id)[0,7])` with the result
 # base58 encoded for transmission and the contextual prefix prepended.
 #
+# Encodings are canonical; a given configuration accepts exactly one string per id.
+#
 # Subkeys for AES and HMAC are by default derived with HKDF using an internal key
 # generator that takes IKM from a passphrase via scrypt.  An alternative key generator
 # may be injected via Config objects. Subkeys are salted by prefix and an optional
@@ -44,7 +46,7 @@ class Epithet
   def initialize(prefix, config: Epithet.defaults)
     prefix = String(prefix)
     key_salt = [prefix.bytesize, prefix, config.salt.bytesize, config.salt].pack('Q>Z*Q>Z*')
-    @block58 = Block58.new(16)
+    @block58 = Block58.new(16, alphabet: config.alphabet)
     @prefix_s = "#{prefix}#{config.separator}"
 
     cipher_key_len = OpenSSL::Cipher.new(config.cipher).key_len
@@ -60,7 +62,7 @@ class Epithet
   # Encode a 64-bit unsigned Integer to a prefixed Base58 string.
   # Raises ArgumentError on invalid values.
   def encode(id)
-    raise ArgumentError, 'not a 64-bit unsigned integer' unless Integer === id && id.size == 8 && id >= 0
+    raise ArgumentError, 'not a 64-bit unsigned integer' unless Integer === id && id.bit_length <= 64 && id >= 0
 
     e = @encryptor.dup
     h = @hmac.dup
@@ -75,7 +77,7 @@ class Epithet
   # Decode a prefixed or raw Base58 string to an Integer.
   #
   # Returns the Integer on success, nil if authentication fails.
-  # Raises ArgumentError on invalid formats.
+  # Raises ArgumentError on invalid wire format (see Block58#valid?).
   def decode(s)
     s = s.delete_prefix(@prefix_s)
     raise ArgumentError, 'unexpected format' unless @block58.valid?(s)
@@ -119,7 +121,9 @@ class Epithet
     # *   `:keygen` - Install an existing key generator
     # *   `:cipher` - Must be a 128-bit block cipher in ECB mode or equivalent; omit for standard `aes-256-ecb`
     # *   `:digest` - Must be >= 64 bits; omit for standard `sha256`
-    # *   `:separator` - Inserted as string between the prefix and the generated param. may be nil; omit for underscore.
+    # *   `:separator` - String inserted between the prefix and the generated param; omit for standard `_`.
+    #                    May be `nil`. Must not share bytes with the alphabet.
+    # *   `:alphabet` - Alphabet for the wire encoding; must be 58 strictly ascending bytes; omit for `Block58::Alphabet`.
     # *   `:salt` - If supplied, stringified form is included in subkey derivation
     #
     # At minimum, one of `passphrase:` or `keygen:` is required.
@@ -149,21 +153,23 @@ class Epithet
     #     acct_epithet = Epithet.new('acct', config: cfg)
     #
     def configure(opts) = @defaults = Config === opts ? opts : Config.new(opts)
-    def defaults = @defaults || raise('no Epithet defaults configured')
+    def defaults() = @defaults || raise('no Epithet defaults configured')
   end
 
   # Class for passing around preset configs. See Epithet::configure for options.
   class Config
-    attr_reader :keygen, :salt, :separator, :cipher, :digest # :nodoc:
+    attr_reader :keygen, :salt, :separator, :alphabet, :cipher, :digest # :nodoc:
 
     def initialize(opts = {})
       opts = opts.dup
       @separator = String(opts.delete(:separator) { '_' })
       @salt = String(opts.delete(:salt))
+      @alphabet = String(opts.delete(:alphabet) { Block58::Alphabet })
       @cipher = opts.delete(:cipher) || 'aes-256-ecb'
       @digest = opts.delete(:digest) || 'sha256'
 
       cipher = OpenSSL::Cipher.new(@cipher)
+      raise ArgumentError, 'separator intersects alphabet' if @separator.bytes.intersect?(@alphabet.bytes)
       raise ArgumentError, "#{@cipher} not a 128-bit block cipher" if cipher.block_size != 16
       raise ArgumentError, "#{@cipher} requires an IV/nonce" if cipher.iv_len != 0
       raise ArgumentError, "#{@digest} produces < 64-bit digest" if OpenSSL::Digest.new(@digest).digest_length < 8
@@ -219,29 +225,35 @@ class Epithet
 
   # Fixed-length Base58 codec for a fixed-size block.
   class Block58
-    # `= "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"`
+    # `= '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'`
     Alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
 
     # Create a codec for a block size in bytes.
+    #
+    # The alphabet must be 58 distinct bytes in ascending order, so that
+    # lexicographic order agrees with numeric order.
     def initialize(block_size, alphabet: Alphabet)
       @alphabet = alphabet.b.freeze
       raise ArgumentError, 'invalid alphabet length' unless @alphabet.bytesize == 58
+      raise ArgumentError, 'alphabet not strictly ascending' unless @alphabet.bytes.each_cons(2).all? { _2 > _1 }
       @size = ((block_size * 8) / Math.log2(58)).ceil(0)
       @charsel = @alphabet.gsub(/[\^\-\\]/, '\\\\\&').freeze
       @blank = @alphabet[0] * @size
       @lut = @alphabet.each_byte.with_index.with_object("\0" * 256) { |(val, idx), lut| lut.setbyte(val, idx) }.freeze
+      @max = i2s((1 << (block_size * 8)) - 1).freeze
     end
 
     def inspect
       "#<#{self.class}:#{'%#016x' % (object_id << 1)} size=#{@size} alphabet=#{@alphabet}>"
     end
 
-    # Return true if the string has the right size and alphabet.
+    # Return true if the string is in range with the right size and alphabet.
     def valid?(s)
-      String === s && s.bytesize == @size && s.count(@charsel) == @size
+      String === s && s.bytesize == @size && s <= @max && s.count(@charsel) == @size
     end
 
     # Encode a non-negative Integer to fixed-length Base58.
+    # Truncates if int >= 58**size.
     def i2s(int)
       # Using divmod+setbyte is faster than Integer#digits under YJIT,
       # and about equal in plain MRI.
@@ -258,7 +270,7 @@ class Epithet
     end
 
     # Decode a fixed-length Base58 string to an Integer.
-    # Assumes the input passes `#valid?`.
+    # Assumes the input passes `#valid?`. Wraps at 58**size on the i2s round trip.
     def s2i(str)
       # rubocop:disable Style/NumericLiterals, Lint/AmbiguousOperatorPrecedence, Layout
       #

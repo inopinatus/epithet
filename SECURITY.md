@@ -8,17 +8,20 @@ HMAC are by default derived with HKDF using an internal key generator that takes
 a passphrase via scrypt, salting generated keys by prefix and purpose.
 
 This library is intended for high-performance obfuscation of integer sequences, deflection
-of casual tampering, and conversion to a compact, stable wire parameter format.  Although
-it uses standard cryptographic primitives to do so, the design trade-off of the compact
-format means it is not intended to defeat nation-state security services, talented
-cryptographers, or even a well-resourced enterprise.
+of casual tampering, and conversion to a compact, stable wire parameter format that is hard
+to guess and hard to predict.  Although it uses standard cryptographic primitives to do so,
+the design trade-off of the compact format means it is not intended to defeat nation-state
+security services, talented cryptographers, or even a well-resourced enterprise.
 
 The identifiers produced are intentionally deterministic i.e. replayable and reusable. For
 privacy, confidentiality, and authentication purposes they should therefore be considered
-equivalent to the plaintext integer they represent, and those purposes must still be addressed
+equivalent to the plaintext integer they represent, and those concerns must still be addressed
 in the usual manner.
 
 The tamper detection is necessarily probabilistic, because the MAC is truncated.
+
+Encodings are canonical, producing exactly one string per id, and Epithet will reject attempts
+to decode a value exceeding the 128-bit block.
 
 If configuring alternative cipher and digest algorithms, note that only 128-bit block
 ciphers that function without IV/nonce requirements are accepted. Streaming ciphers
@@ -37,5 +40,3 @@ Use Epithet at your own risk.
 If you think you've found a vulnerability in Epithet that compromises its design or behaviour, please
 [report it via a private advisory](https://github.com/inopinatus/epithet/security/advisories/new).
 Do not open a public issue or pull request.
-
-

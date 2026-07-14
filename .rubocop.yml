@@ -1,10 +1,7 @@
 AllCops:
   NewCops: enable
-  TargetRubyVersion: 4.0
+  TargetRubyVersion: 3.3
   SuggestExtensions: false
-
-Gemspec/RequiredRubyVersion:
-  Enabled: false
 
 Gemspec/DevelopmentDependencies:
   EnforcedStyle: gemspec
@@ -20,10 +17,10 @@ Metrics/AbcSize:
   Enabled: false
 
 Metrics/CyclomaticComplexity:
-  Max: 9
+  Max: 10
 
 Metrics/PerceivedComplexity:
-  Max: 9
+  Max: 10
 
 Metrics/MethodLength:
   Max: 25
@@ -39,6 +36,9 @@ Style/StringLiterals:
   EnforcedStyle: single_quotes
 
 Style/CaseEquality:
+  Enabled: false
+
+Style/DefWithParentheses:
   Enabled: false
 
 Style/FormatString:

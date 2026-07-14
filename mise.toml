@@ -1,0 +1,11 @@
+[tools]
+ruby = "latest"
+
+[tasks.test]
+run = "bundle exec rake test"
+
+[tasks.cop]
+run = "bundle exec rubocop"
+
+[tasks.doc]
+run = "bundle exec rake rdoc && open doc/index.html"

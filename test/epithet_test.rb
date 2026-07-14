@@ -30,6 +30,16 @@ class EpithetTest < Minitest::Test
     assert_raises(ArgumentError) { epithet.decode('user_123') }
   end
 
+  def test_decode_rejects_out_of_range_alias
+    epithet = Epithet.new('user')
+    block58 = Epithet::Block58.new(16)
+    canonical = epithet.encode(42).delete_prefix('user_')
+    aliased = block58.i2s(block58.s2i(canonical) + (1 << 128))
+
+    refute_equal canonical, aliased
+    assert_raises(ArgumentError) { epithet.decode('user_' + aliased) }
+  end
+
   def test_decode_allows_omitted_prefix
     epithet = Epithet.new('user')
     id = 99
@@ -56,5 +66,33 @@ class EpithetTest < Minitest::Test
     wrong = Epithet.new('user', config: wrong_keygen)
 
     assert_nil wrong.decode(param)
+  end
+
+  def test_separator_must_not_intersect_alphabet
+    error = assert_raises(ArgumentError) { Epithet::Config.new(keygen: Cfg.keygen, separator: 'z') }
+
+    assert_match(/separator/, error.message)
+    assert_raises(ArgumentError) do
+      Epithet::Config.new(keygen: Cfg.keygen, alphabet: [*'0'..'4', *'A'..'Z', '_', *'a'..'z'].join)
+    end
+  end
+
+  def test_custom_alphabet
+    alphabet = [*'0'..'5', *'A'..'Z', *'a'..'z'].join
+    cfg = Epithet::Config.new(keygen: Cfg.keygen, alphabet: alphabet)
+    epithet = Epithet.new('user', config: cfg)
+    param = epithet.encode(42)
+
+    assert_equal 42, epithet.decode(param)
+    assert_equal Epithet.new('user').encode(42), 'user_' + param.delete_prefix('user_').tr(alphabet, Epithet::Block58::Alphabet)
+  end
+
+  def test_prefix_mismatch
+    user = Epithet.new('user')
+    acct = Epithet.new('acct')
+    payload = user.encode(42).delete_prefix('user_')
+
+    assert_equal 42, user.decode(payload)
+    assert_nil acct.decode(payload)
   end
 end
