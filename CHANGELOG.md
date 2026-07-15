@@ -1,5 +1,23 @@
 # Changelog
 
+## 2.0.0 - 2026-07-16
+
+### Breaking changes
+
+- The subkey-derivation option `context:` replaces `salt:`, to avoid confusion with scrypt's salt parameter.
+- Subkey derivation now binds the configured cipher and digest names (lowercased) into the HKDF info.
+- Nil and empty-string prefixes now yield bare params with no separator.
+- Config no longer exposes the alphabet string, it carries the Block58 codec around instead.
+- Drop support for Rubies < 3.4.
+
+### Other changes
+
+- Raise Epithet::FormatError (< ArgumentError) on invalid wire format
+- Improve handling of string encodings
+- Additional invariants
+- Friendlier errors
+- Documentation improvements
+
 ## 1.1.0 - 2026-07-14
 
 - Freeze config strings upon object initialization

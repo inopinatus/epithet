@@ -2,10 +2,13 @@
 
 require 'epithet'
 
+# Using a random passphrase means that epithet identifiers are effectively
+# ephemeral, since decoding is limited to the lifetime of this process.
 def epithet_initialize
   Epithet.configure(
-    passphrase: ENV.fetch('EPITHET_PASSPHRASE') { 'example only' },
-    salt: 'v1'
+    passphrase: ENV.fetch('EPITHET_PASSPHRASE') { Random.bytes(32) },
+    scrypt: { salt: 'myapp/production' },
+    context: 'v1'
   )
 end
 
@@ -13,6 +16,6 @@ epithet_initialize
 user_epithet = Epithet.new('user')
 
 id = Integer(ARGV.shift || 42)
-param = user_epithet.encode(id) #=> "user_VsuNnfEYQJJTJYE3n28jaY"
+param = user_epithet.encode(id) #=> "user_KYM3B4d5ce1NNsv52rAoPg"
 
 puts "User(#{user_epithet.decode(param)}) => #{param}"
