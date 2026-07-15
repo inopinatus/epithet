@@ -288,8 +288,9 @@ class Epithet
       out
     end
 
-    # Decode a fixed-length Base58 string to an Integer.
-    # Assumes the input passes `#valid?`. Wraps at 58**size on the i2s round trip.
+    # Decode a fixed-length base58 string to an integer.
+    # Assumes the input passes `#valid?`, behaviour undefined if it doesn't.
+    # Wraps at 58**size on the i2s round trip.
     def s2i(str)
       # Chunking intermediate results into 64-bit integers is ~5x faster
       # under YJIT than Horner's scheme
@@ -324,8 +325,8 @@ class Epithet
         raise ArgumentError, 'unrolled codec requires a 16-byte block' unless @size == 22
       end
 
-      # Decode a fixed-length Base58 string to an Integer.
-      # Assumes the input passes `#valid?`.
+      # Decode a 22-digit base58 string to an integer.
+      # Assumes the input passes `#valid?`, behaviour undefined if it doesn't.
       def s2i(str)
         # rubocop:disable Style/NumericLiterals, Lint/AmbiguousOperatorPrecedence, Layout
         #
