@@ -45,7 +45,7 @@ user_epithet.decode(param)
 # => 42
 ```
 
-Configuration once at initialisation is recommended, because deriving key material from the passphrase uses scrypt, and is consequently expensive.  The `context:` is optional; this parameter is included when deriving the subkey material for obfuscating and tamper resistance, and support purpose separation such as key rotation.  The scrypt step is seasoned by a salt, which defaults to a fixed constant; set an application-specific salt, as in the example above, so that two applications inadvertently sharing a passphrase never derive the same keys.
+Configuration once at initialisation is recommended, because deriving key material from the passphrase uses scrypt, and is consequently expensive.  The `context:` is optional; this parameter is included when deriving the subkey material for obfuscating and tamper resistance, and may be used for separation of purpose or key rotation.  The scrypt step is seasoned by a salt, which defaults to a fixed constant; set an application-specific salt, as in the example above, so that two applications inadvertently sharing a passphrase never derive the same keys.
 
 Refer to the Epithet rdoc for the full set of configuration options.
 
