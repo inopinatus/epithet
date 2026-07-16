@@ -50,7 +50,7 @@ class Epithet
   # The simplest typical invocation is `Epithet.new('prefix')`.
   #
   def initialize(prefix, config: Epithet.defaults)
-    prefix = String(prefix)
+    prefix = -String(prefix)
     @prefix = prefix.empty? ? prefix : prefix + config.separator
     @wire_prefix = @prefix.b
     key_salt = [prefix.bytesize, prefix, config.context.bytesize, config.context].pack('Q>Z*Q>Z*')
