@@ -48,6 +48,7 @@ Style/DefWithParentheses:
 Style/EmptyClassDefinition:
   AllowedParentClasses:
     - ArgumentError
+    - RuntimeError
 
 Style/FormatString:
   EnforcedStyle: percent

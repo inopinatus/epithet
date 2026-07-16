@@ -35,6 +35,9 @@ class Epithet
   # Raised by #decode when the input is not valid wire format.
   FormatError = Class.new(ArgumentError)
 
+  # Raised if no defaults are configured.
+  ConfigurationError = Class.new(RuntimeError)
+
   # Create an encoder/decoder.
   #
   # Setup could be moderately expensive due to key derivation; you are recommended to cache
@@ -167,7 +170,7 @@ class Epithet
     #     acct_epithet = Epithet.new('acct', config: cfg)
     #
     def configure(opts) = @defaults = Config === opts ? opts : Config.new(opts)
-    def defaults() = @defaults || raise('no Epithet defaults configured')
+    def defaults() = @defaults || raise(ConfigurationError, 'no Epithet defaults configured')
   end
 
   # Class for passing around preset configs. See Epithet::configure for options.

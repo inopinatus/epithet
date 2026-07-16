@@ -258,7 +258,7 @@ class EpithetTest < Minitest::Test
     saved = Epithet.defaults
     Epithet.instance_variable_set(:@defaults, nil)
 
-    assert_raises(RuntimeError) { Epithet.defaults }
+    assert_raises(Epithet::ConfigurationError) { Epithet.defaults }
   ensure
     Epithet.configure(saved)
   end
