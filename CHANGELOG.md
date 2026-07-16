@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+### Breaking changes
+
+- The subkey-derivation option `context:` replaces `salt:`, to avoid confusion with scrypt's salt parameter.
+- Nil and empty-string prefixes now yield bare params with no separator.
+- Config no longer exposes the alphabet string, it carries the Block58 codec around instead.
+
+### Other changes
+
+- Decode stringifies its input, reads it as bytes whatever its encoding
+- We now raise Epithet::FormatError (ArgumentError subclass) on invalid wire format
+- Validate the alphabet when a Config is created, instead of at Epithet instantiation
+- Friendlier error when keygen: is supplied together with passphrase: or scrypt:
+- Documentation improvements
+
 ## 1.1.0 - 2026-07-14
 
 - Freeze config strings upon object initialization

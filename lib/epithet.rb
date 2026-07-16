@@ -10,15 +10,15 @@ require 'openssl'
 # prefix (typically a model or table name), produces a replayable string parameter of
 # consistent length, with modest obfuscation and authentication properties.
 #
-# Pseudo-AEAD is via `AES-256-ECB(id(8B) + HMAC-SHA256(id)[0,7])` with the result
+# Pseudo-AEAD is via `AES-256-ECB(id(8B) + MSB_64(HMAC-SHA256(id)))` with the result
 # base58 encoded for transmission and the contextual prefix prepended.
 #
-# Encodings are canonical; a given configuration accepts exactly one string per id.
+# Encodings are canonical; a given configuration produces exactly one string per id.
 #
 # Subkeys for AES and HMAC are by default derived with HKDF using an internal key
 # generator that takes IKM from a passphrase via scrypt.  An alternative key generator
-# may be injected via Config objects. Subkeys are salted by prefix and an optional
-# additional salt, which may be useful for purpose separation or rotation.
+# may be injected via Config objects.  Subkeys are salted by prefix and an optional
+# context string, which may be useful for purpose separation or rotation.
 #
 # Example usage:
 #
@@ -28,26 +28,29 @@ require 'openssl'
 #     # ... later, in Ruby ...
 #     Epithet.configure(passphrase: ENV.fetch('EPITHET_PASSPHRASE'))
 #     user_epithet = Epithet.new('user')
-#     user_epithet.encode(1) #=> "user_DAG6Joc5JmgygTBuEo8a9K"
+#     user_epithet.encode(1) #=> "user_1Evy3mGnFPhhHuMM3PsSvp"
 #
 class Epithet
+  # Raised by #decode when the input is not valid wire format.
+  FormatError = Class.new(ArgumentError)
+
   # Create an encoder/decoder.
   #
   # Setup could be moderately expensive due to key derivation; you are recommended to cache
-  # and reuse instances with equal parameters (e.g. setup once per model)
+  # and reuse instances with equal parameters (e.g. setup the key generation once per runtime).
   #
-  # * `prefix` is stringified, and may be nil, producing an empty prefix.
-  #   The prefix is included in the salt for key generation.
+  # * `prefix` is stringified and read as bytes.  Nil and empty prefixes produce a bare
+  #   param, with any separator ignored.  The prefix is included in the salt for key generation.
   #
-  # * `config` is optional and intended for cases where you needed finer control than global defaults.
+  # * `config` is optional and intended for cases where you need finer control than global defaults.
   #
   # The simplest typical invocation is `Epithet.new('prefix')`.
   #
   def initialize(prefix, config: Epithet.defaults)
-    prefix = String(prefix)
-    key_salt = [prefix.bytesize, prefix, config.salt.bytesize, config.salt].pack('Q>Z*Q>Z*')
-    @block58 = Block58.build(16, alphabet: config.alphabet)
-    @prefix_s = "#{prefix}#{config.separator}"
+    prefix = String(prefix).b
+    @prefix = prefix.empty? ? prefix : prefix + config.separator.b
+    key_salt = [prefix.bytesize, prefix, config.context.bytesize, config.context].pack('Q>Z*Q>Z*')
+    @codec = config.codec
 
     cipher_key_len = OpenSSL::Cipher.new(config.cipher).key_len
     digest_key_len = OpenSSL::Digest.new(config.digest).block_length
@@ -59,7 +62,7 @@ class Epithet
     @hmac = OpenSSL::HMAC.new(digest_key, config.digest)
   end
 
-  # Encode a 64-bit unsigned Integer to a prefixed Base58 string.
+  # Encode a 64-bit unsigned integer to a prefixed base58 string.
   # Raises ArgumentError on invalid values.
   def encode(id)
     raise ArgumentError, 'not a 64-bit unsigned integer' unless Integer === id && id.bit_length <= 64 && id >= 0
@@ -71,21 +74,23 @@ class Epithet
     block = e.update([pt, m].pack('a8a8')) + e.final
     ct = block.unpack('Q>2').then { (_1 << 64) + _2 }
 
-    @prefix_s + @block58.i2s(ct)
+    @prefix + @codec.i2s(ct)
   end
 
-  # Decode a prefixed or raw Base58 string to an Integer. Raw inputs are
+  # Decode a prefixed or raw base58 string to an integer.  The input is
+  # stringified and read as bytes, whatever its encoding; raw inputs are
   # recognised by their exact payload length.
   #
-  # Returns the Integer on success, nil if authentication fails.
-  # Raises ArgumentError on invalid wire format (see Block58#valid?).
+  # Returns the integer on success, nil if authentication fails.
+  # Raises FormatError on invalid wire format (see Block58#valid?).
   def decode(s)
-    s = s.delete_prefix(@prefix_s) unless s.bytesize == @block58.size
-    raise ArgumentError, 'unexpected format' unless @block58.valid?(s)
+    s = String(s).b
+    s = s.delete_prefix(@prefix) unless s.bytesize == @codec.size
+    raise FormatError, 'unexpected format' unless @codec.valid?(s)
 
     d = @decryptor.dup
     h = @hmac.dup
-    ct = @block58.s2i(s)
+    ct = @codec.s2i(s)
     block = d.update([ct >> 64, ct].pack('Q>2')) + d.final
     pt, m = block.unpack('a8a8')
     id = pt.unpack1('Q>')
@@ -110,11 +115,11 @@ class Epithet
     #       scrypt: { salt: "#{MyApp.name}/#{MyApp.env}" }
     #     )
     #
-    #     # Retaining already-configured passphrase but updating salt,
+    #     # Retaining already-configured passphrase but updating context,
     #     # and using a custom separator.
     #     Epithet.configure(
     #       keygen: Epithet.defaults.keygen,
-    #       salt: 'rotation-19',
+    #       context: 'rotation-19',
     #       separator: '-'
     #     )
     #
@@ -126,9 +131,11 @@ class Epithet
     # *   `:cipher` - Must be a 128-bit block cipher in ECB mode or equivalent; omit for standard `aes-256-ecb`
     # *   `:digest` - Must be >= 64 bits; omit for standard `sha256`
     # *   `:separator` - String inserted between the prefix and the generated param; omit for standard `_`.
-    #                    May be `nil`. Must not share bytes with the alphabet.
+    #                    May be `nil`.  Must not share bytes with the alphabet.
+    #                    Not emitted when prefix is `nil` or empty.
     # *   `:alphabet` - Alphabet for the wire encoding; must be 58 strictly ascending bytes; omit for `Block58::Alphabet`.
-    # *   `:salt` - If supplied, stringified form is included in subkey derivation
+    # *   `:context` - If supplied, stringified form is included in subkey derivation.  Useful for
+    #                   purpose separation or rotation epochs
     #
     # At minimum, one of `passphrase:` or `keygen:` is required.
     # Configuration via `passphrase` is recommended.
@@ -162,26 +169,29 @@ class Epithet
 
   # Class for passing around preset configs. See Epithet::configure for options.
   class Config
-    attr_reader :keygen, :salt, :separator, :alphabet, :cipher, :digest # :nodoc:
+    attr_reader :keygen, :context, :separator, :cipher, :digest, :codec # :nodoc:
 
     def initialize(opts = {})
       opts = opts.dup
       @separator = -String(opts.delete(:separator) { '_' })
-      @salt = -String(opts.delete(:salt))
-      @alphabet = -String(opts.delete(:alphabet) { Block58::Alphabet })
+      @context = -String(opts.delete(:context))
+      alphabet = String(opts.delete(:alphabet) { Block58::Alphabet })
       @cipher = -(opts.delete(:cipher) || 'aes-256-ecb')
       @digest = -(opts.delete(:digest) || 'sha256')
 
       cipher = OpenSSL::Cipher.new(@cipher)
-      raise ArgumentError, 'separator intersects alphabet' if @separator.bytes.intersect?(@alphabet.bytes)
+      raise ArgumentError, 'separator intersects alphabet' if @separator.bytes.intersect?(alphabet.bytes)
       raise ArgumentError, "#{@cipher} not a 128-bit block cipher" if cipher.block_size != 16
       raise ArgumentError, "#{@cipher} requires an IV/nonce" if cipher.iv_len != 0
       raise ArgumentError, "#{@digest} produces < 64-bit digest" if OpenSSL::Digest.new(@digest).digest_length < 8
+
+      @codec = Block58.build(cipher.block_size, alphabet: alphabet)
 
       @keygen = opts.delete(:keygen) || Keygen.new(
         passphrase: opts.delete(:passphrase),
         digest: @digest,
         scrypt: opts.delete(:scrypt) || {})
+      raise ArgumentError, 'use keygen: or passphrase:, not both' if opts.keys.intersect?(%i[passphrase scrypt])
       raise ArgumentError, "unused option(s) #{opts.keys}" unless opts.empty?
       freeze
     end
@@ -255,7 +265,7 @@ class Epithet
       @alphabet = alphabet.b.freeze
       raise ArgumentError, 'invalid alphabet length' unless @alphabet.bytesize == 58
       raise ArgumentError, 'alphabet not strictly ascending' unless @alphabet.bytes.each_cons(2).all? { _2 > _1 }
-      @size = ((block_size * 8) / Math.log2(58)).ceil(0)
+      @size = ((block_size * 8) / Math.log2(58)).ceil
       @charsel = @alphabet.gsub(/[\^\-\\]/, '\\\\\&').freeze
       @blank = @alphabet[0] * @size
       @lut = @alphabet.each_byte.with_index.with_object("\0" * 256) { |(val, idx), lut| lut.setbyte(val, idx) }.freeze
@@ -271,7 +281,8 @@ class Epithet
       String === s && s.bytesize == @size && s <= @max && s.count(@charsel) == @size
     end
 
-    # Encode a non-negative Integer to fixed-length Base58.
+    # Encode a non-negative integer to fixed-length base58.
+    # Returns base58 zero, if handed a negative.
     # Truncates if int >= 58**size.
     def i2s(int)
       # Using divmod+setbyte is faster than Integer#digits under YJIT,
@@ -330,9 +341,9 @@ class Epithet
       def s2i(str)
         # rubocop:disable Style/NumericLiterals, Lint/AmbiguousOperatorPrecedence, Layout
         #
-        # By unrolling the chunks against literal coefficients, this is ~1.6x
-        # faster under YJIT than the generic chunked Block58#s2i, and ~8x
-        # faster than Horner's scheme.
+        # By unrolling the chunks against literal coefficients, this tested with Ruby 4.0
+        # at ~1.5x faster under YJIT than the generic chunked Block58#s2i, and ~6x faster
+        # than Horner's scheme.
         lut = @lut
 
         acc0 = lut.getbyte(str.getbyte(0)) * 7427658739644928 +
@@ -357,10 +368,10 @@ class Epithet
                lut.getbyte(str.getbyte(18)) * 58 +
                lut.getbyte(str.getbyte(19))
 
-                                 lut.getbyte(str.getbyte(21)) +
-                            58 * lut.getbyte(str.getbyte(20)) +
-                          3364 * acc1 +
-        1449225352009601191936 * acc0
+               lut.getbyte(str.getbyte(21)) +
+               lut.getbyte(str.getbyte(20)) * 58 +
+                                       acc1 * 3364 +
+                                       acc0 * 1449225352009601191936
 
         # rubocop:enable Style/NumericLiterals, Lint/AmbiguousOperatorPrecedence, Layout
       end

@@ -30,6 +30,39 @@ class EpithetTest < Minitest::Test
     assert_raises(ArgumentError) { epithet.decode('user_123') }
   end
 
+  def test_decode_stringifies_junk_and_raises_format_error
+    epithet = Epithet.new('user')
+
+    [nil, 42, 4.2, [], {}, :junk].each do |junk|
+      assert_raises(Epithet::FormatError) { epithet.decode(junk) }
+    end
+  end
+
+  def test_decode_rejects_incompatible_encodings
+    epithet = Epithet.new('user')
+    param = epithet.encode(42)
+
+    assert_raises(Epithet::FormatError) { epithet.decode(param.encode('UTF-16LE')) }
+    assert_raises(Epithet::FormatError) { epithet.decode('elevenchars'.encode('UTF-16LE')) }
+  end
+
+  def test_decode_accepts_a_to_str_duck
+    epithet = Epithet.new('user')
+    duck = Struct.new(:s) { def to_str = s }
+
+    assert_equal 42, epithet.decode(duck.new(epithet.encode(42)))
+  end
+
+  def test_decode_wrong_prefix_raises_format_error
+    param = Epithet.new('user').encode(42)
+
+    assert_raises(Epithet::FormatError) { Epithet.new('acct').decode(param) }
+  end
+
+  def test_format_error_is_an_argument_error
+    assert_operator Epithet::FormatError, :<, ArgumentError
+  end
+
   def test_decode_rejects_out_of_range_alias
     epithet = Epithet.new('user')
     block58 = Epithet::Block58.new(16)
@@ -94,6 +127,22 @@ class EpithetTest < Minitest::Test
 
     assert_equal 42, user.decode(payload)
     assert_nil acct.decode(payload)
+  end
+
+  def test_nil_and_empty_prefixes_produce_bare_param
+    bare = Epithet.new(nil)
+    empty = Epithet.new('')
+    param = bare.encode(7)
+
+    assert_equal 22, param.bytesize
+    assert_equal param, empty.encode(7)
+    assert_equal 7, bare.decode(param)
+    assert_equal 7, empty.decode(param)
+  end
+
+  def test_config_rejects_invalid_alphabet
+    assert_raises(ArgumentError) { Epithet::Config.new(keygen: Cfg.keygen, alphabet: 'abc') }
+    assert_raises(ArgumentError) { Epithet::Config.new(keygen: Cfg.keygen, alphabet: Epithet::Block58::Alphabet.reverse) }
   end
 
   def test_raw_decode_raw_with_empty_separator

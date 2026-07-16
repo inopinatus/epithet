@@ -29,7 +29,7 @@ require 'epithet'
 def epithet_initialize
   Epithet.configure(
     passphrase: ENV.fetch('EPITHET_PASSPHRASE'),
-    salt: 'v1'
+    context: 'v1'
   )
 end
 
@@ -44,11 +44,21 @@ user_epithet.decode(param)
 # => 42
 ```
 
-Configuration at initialisation is recommended, because deriving key material from the passphrase uses scrypt, and is consequently expensive. The `salt:` is optional; it's included when deriving the subkey material for obfuscating and tamper resistance, and may be useful for additional context discrimination or during secrets rotation.
+Configuration at initialisation is recommended, because deriving key material from the passphrase uses scrypt, and is consequently expensive. The `context:` is optional; it's included when deriving the subkey material for obfuscating and tamper resistance, and is intended for purpose separation, including key rotation.
+
+The scrypt step is seasoned by salt, which defaults to a fixed constant. Set an application-specific value so that two applications sharing a passphrase never derive the same keys:
+
+```ruby
+Epithet.configure(
+  passphrase: ENV.fetch('EPITHET_PASSPHRASE'),
+  scrypt: { salt: 'myapp/production' },
+  context: 'v1'
+)
+```
 
 Refer to the Epithet rdoc for the full set of configuration options.
 
-Note that `decode` returns `nil` when authentication fails and raises ArgumentError on invalid formats.
+Note that `decode` returns `nil` when authentication fails, and raises `Epithet::FormatError` (an ArgumentError) on invalid formats.
 
 ## Development
 

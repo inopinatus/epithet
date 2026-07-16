@@ -5,7 +5,7 @@ require 'epithet'
 def epithet_initialize
   Epithet.configure(
     passphrase: ENV.fetch('EPITHET_PASSPHRASE') { 'example only' },
-    salt: 'v1'
+    context: 'v1'
   )
 end
 

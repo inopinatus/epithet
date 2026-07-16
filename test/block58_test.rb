@@ -78,6 +78,20 @@ class Block58Test < Minitest::Test
     assert_raises(ArgumentError) { Epithet::Block58::Unrolled16.new(32) }
   end
 
+  def test_unrolled_agrees_with_generic
+    generic = Epithet::Block58.new(16)
+    unrolled = Epithet::Block58.build(16)
+    rng = Random.new(58)
+
+    1000.times do
+      value = rng.rand(1 << 128)
+      encoded = generic.i2s(value)
+
+      assert_equal encoded, unrolled.i2s(value)
+      assert_equal value, unrolled.s2i(encoded)
+    end
+  end
+
   def test_build_round_trips_other_block_sizes
     rng = Random.new(58)
 

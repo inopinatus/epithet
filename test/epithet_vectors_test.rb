@@ -3,7 +3,7 @@
 require_relative 'test_helper'
 
 class EpithetVectorsTest < Minitest::Test
-  # prefix, salt, separator, id, param
+  # prefix, context, separator, id, param
   VECTORS = [
     ['user', 'v1', '_', 0, 'user_KFoi5HYESM5hxVuNqVXY5K'],
     ['user', 'v1', '_', 42, 'user_Wvj1xHrW4etC4VPvfjhu36'],
@@ -11,7 +11,9 @@ class EpithetVectorsTest < Minitest::Test
     ['acct', 'v2', '_', 1, 'acct_75aFU5rhHrrEHmrKWHpShn'],
     ['acct', 'v2', '_', 0x0123_4567_89ab_cdef, 'acct_JSuYHaTtHacG7zBE4WzPmw'],
     [nil, nil, nil, 0, 'Q6eJGkTY74S1rsfxSHesk7'],
+    [nil, nil, '_', 0, 'Q6eJGkTY74S1rsfxSHesk7'],
     ['', '', '', 0, 'Q6eJGkTY74S1rsfxSHesk7'],
+    ['', nil, '_', 0, 'Q6eJGkTY74S1rsfxSHesk7'],
     [:record, ??, :*, 99, 'record*TGB6mATPzzdTwUM8N5VTRw'],
     ['record', '?', '*', 99, 'record*TGB6mATPzzdTwUM8N5VTRw'],
     ['record', '?', '!', 99, 'record!TGB6mATPzzdTwUM8N5VTRw'],
@@ -20,8 +22,8 @@ class EpithetVectorsTest < Minitest::Test
   ].freeze
 
   def test_encode_vectors
-    VECTORS.each do |prefix, salt, separator, id, param|
-      cfg = Epithet::Config.new(keygen: Cfg.keygen, salt: salt, separator: separator)
+    VECTORS.each do |prefix, context, separator, id, param|
+      cfg = Epithet::Config.new(keygen: Cfg.keygen, context: context, separator: separator)
       epithet = Epithet.new(prefix, config: cfg)
 
       assert_equal param, epithet.encode(id)
@@ -29,8 +31,8 @@ class EpithetVectorsTest < Minitest::Test
   end
 
   def test_decode_vectors
-    VECTORS.each do |prefix, salt, separator, id, param|
-      cfg = Epithet::Config.new(keygen: Cfg.keygen, salt: salt, separator: separator)
+    VECTORS.each do |prefix, context, separator, id, param|
+      cfg = Epithet::Config.new(keygen: Cfg.keygen, context: context, separator: separator)
       epithet = Epithet.new(prefix, config: cfg)
 
       assert_equal id, epithet.decode(param)
