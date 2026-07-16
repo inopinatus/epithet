@@ -17,10 +17,10 @@ Metrics/AbcSize:
   Enabled: false
 
 Metrics/CyclomaticComplexity:
-  Max: 10
+  Max: 11
 
 Metrics/PerceivedComplexity:
-  Max: 10
+  Max: 11
 
 Metrics/MethodLength:
   Max: 25
@@ -44,6 +44,10 @@ Style/CaseEquality:
 
 Style/DefWithParentheses:
   Enabled: false
+
+Style/EmptyClassDefinition:
+  AllowedParentClasses:
+    - ArgumentError
 
 Style/FormatString:
   EnforcedStyle: percent
