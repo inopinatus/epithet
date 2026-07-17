@@ -1,5 +1,11 @@
 # Changelog
 
+### Unreleased
+
+- Freeze prefix strings before use
+- Throw `Epithet::ConfigurationError` (< `RuntimeError`) unless configured
+- Documentation edits
+
 ## 2.0.0 - 2026-07-16
 
 ### Breaking changes
