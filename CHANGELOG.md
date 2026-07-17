@@ -1,9 +1,10 @@
 # Changelog
 
-### Unreleased
+## Unreleased
 
 - Freeze prefix strings before use
 - Raise `Epithet::ConfigurationError` (< `RuntimeError`) if config missing
+- Unknown cipher/digest names raise `ArgumentError`
 - Documentation edits
 
 ## 2.0.0 - 2026-07-16

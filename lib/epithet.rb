@@ -55,8 +55,8 @@ class Epithet
   #
   def initialize(prefix, config: Epithet.defaults)
     prefix = -String(prefix)
-    @prefix = prefix.empty? ? prefix : prefix + config.separator
-    @wire_prefix = @prefix.b
+    @prefix = prefix.empty? ? prefix : -(prefix + config.separator)
+    @wire_prefix = @prefix.b.freeze
     key_salt = [prefix.bytesize, prefix, config.context.bytesize, config.context].pack('Q>Z*Q>Z*')
     @codec = config.codec
 
@@ -158,8 +158,8 @@ class Epithet
     #
     #     cfg = Epithet::Config.new(
     #       keygen: my_key_gen,
-    #       cipher: 'stronk-512-jcb',
-    #       digest: 'md7'
+    #       cipher: 'camellia-256-ecb',
+    #       digest: 'sha224'
     #     )
     #
     # and either install this as default with
@@ -187,11 +187,13 @@ class Epithet
       @digest = -(opts.delete(:digest) || 'sha256').downcase
       keygen, passphrase, scrypt = %i[keygen passphrase scrypt].map { opts.delete it }
 
-      cipher = OpenSSL::Cipher.new(@cipher)
+      cipher = probe(OpenSSL::Cipher, @cipher)
+      digest = probe(OpenSSL::Digest, @digest)
+
       raise ArgumentError, 'separator intersects alphabet' if @separator.bytes.intersect?(alphabet.bytes)
       raise ArgumentError, "#{@cipher} not a 128-bit block cipher" if cipher.block_size != 16
       raise ArgumentError, "#{@cipher} requires an IV/nonce" if cipher.iv_len != 0
-      raise ArgumentError, "#{@digest} produces < 64-bit digest" if OpenSSL::Digest.new(@digest).digest_length < 8
+      raise ArgumentError, "#{@digest} produces < 64-bit digest" if digest.digest_length < 8
       raise ArgumentError, 'use keygen: or passphrase:, not both' if keygen && (passphrase || scrypt)
       raise ArgumentError, 'one of passphrase: or keygen: is required' unless keygen || passphrase
       raise ArgumentError, "unused option(s) #{opts.keys}" unless opts.empty?
@@ -199,6 +201,13 @@ class Epithet
       @codec = Block58.build(cipher.block_size, alphabet:)
       @keygen = keygen || Keygen.new(passphrase:, digest: @digest, scrypt:)
       freeze
+    end
+
+    # The openssl gem <4.0 raises bare RuntimeError for unrecognised algorithm names.
+    def probe(kind, name) # :nodoc:
+      kind.new(name)
+    rescue OpenSSL::OpenSSLError, RuntimeError
+      raise ArgumentError, "unknown #{kind.name[/\w+\z/].downcase} #{name}"
     end
   end
 
@@ -271,7 +280,7 @@ class Epithet
       raise ArgumentError, 'alphabet not strictly ascending' unless @alphabet.bytes.each_cons(2).all? { _2 > _1 }
       @size = ((block_size * 8) / Math.log2(58)).ceil
       @charsel = @alphabet.gsub(/[\^\-\\]/, '\\\\\&').freeze
-      @blank = @alphabet[0] * @size
+      @blank = (@alphabet[0] * @size).freeze
       @lut = @alphabet.each_byte.with_index.with_object("\0" * 256) { |(val, idx), lut| lut.setbyte(val, idx) }.freeze
       @limit = 1 << (block_size * 8)
       @max = i2s(@limit - 1).freeze

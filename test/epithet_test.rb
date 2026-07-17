@@ -159,6 +159,14 @@ class EpithetTest < Minitest::Test
     assert_raises(ArgumentError) { Epithet::Config.new(keygen: Cfg.keygen, cipher: 'des-ede3') }
   end
 
+  def test_config_rejects_unknown_algorithms
+    cipher_error = assert_raises(ArgumentError) { Epithet::Config.new(keygen: Cfg.keygen, cipher: 'stronk-512-jcb') }
+    digest_error = assert_raises(ArgumentError) { Epithet::Config.new(keygen: Cfg.keygen, digest: 'md7') }
+
+    assert_match(/unknown cipher stronk-512-jcb/, cipher_error.message)
+    assert_match(/unknown digest md7/, digest_error.message)
+  end
+
   def test_config_rejects_keygen_alongside_passphrase_options
     assert_raises(ArgumentError) { Epithet::Config.new(keygen: Cfg.keygen, passphrase: 'pw') }
     assert_raises(ArgumentError) { Epithet::Config.new(keygen: Cfg.keygen, scrypt: { salt: 's' }) }
@@ -252,6 +260,28 @@ class EpithetTest < Minitest::Test
 
     assert_match(/passphrase/, error.message)
     assert_raises(ArgumentError) { Epithet::Config.new(scrypt: { salt: 'lonely' }) }
+  end
+
+  def test_configure_accepts_an_options_hash
+    saved = Epithet.defaults
+    Epithet.configure(passphrase: 'testing', scrypt: { N: 1 << 4 })
+
+    assert_instance_of Epithet::Config, Epithet.defaults
+    assert_equal 42, Epithet.new('user').decode(Epithet.new('user').encode(42))
+  ensure
+    Epithet.configure(saved)
+  end
+
+  def test_keygen_inspect_conceals_key_material
+    keygen = Epithet::Keygen.new(ikm: 'super-secret-ikm')
+
+    assert_match(/digest=sha256/, keygen.inspect)
+    refute_match(/super-secret/, keygen.inspect)
+  end
+
+  def test_config_and_keygen_freeze_on_creation
+    assert_predicate Cfg, :frozen?
+    assert_predicate Cfg.keygen, :frozen?
   end
 
   def test_defaults_raise_configuration_error_when_unconfigured
