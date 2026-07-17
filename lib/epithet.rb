@@ -48,7 +48,8 @@ class Epithet
   #
   # * `config` is optional and intended for cases where you need finer control than global defaults.
   #
-  # Mixed character encodings across prefix & separator may raise Encoding::CompatibilityError.
+  # Mixing incompatible character encodings across prefix/separator/payload may raise
+  # Encoding::CompatibilityError or Epithet::FormatError.  Don't expect UTF-16LE to work.
   #
   # The simplest typical invocation is `Epithet.new('prefix')`.
   #

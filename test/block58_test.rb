@@ -68,6 +68,7 @@ class Block58Test < Minitest::Test
     end
   end
 
+  # We neither support or produce UTF-16LE, it's an ASCII-incompatible hazard.
   def test_valid_reads_bytes_whatever_the_encoding
     assert @block.valid?('1111111111111111111112'.encode('US-ASCII'))
     refute @block.valid?(('A' * 11).encode('UTF-16LE'))
