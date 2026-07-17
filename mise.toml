@@ -6,8 +6,10 @@ run = "bundle exec rake test"
 
 [tasks.matrix]
 run = [
-  "mise exec ruby@3.4 -- bundle install && exec rake test",
-  "mise exec ruby@4.0 -- bundle install && exec rake test",
+  "mise exec ruby@3.4 -- bundle install",
+  "mise exec ruby@3.4 -- bundle exec rake test",
+  "mise exec ruby@4.0 -- bundle install",
+  "mise exec ruby@4.0 -- bundle exec rake test",
   "bundle exec rubocop"
 ]
 
