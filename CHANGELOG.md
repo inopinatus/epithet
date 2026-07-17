@@ -3,7 +3,7 @@
 ### Unreleased
 
 - Freeze prefix strings before use
-- Throw `Epithet::ConfigurationError` (< `RuntimeError`) unless configured
+- Raise `Epithet::ConfigurationError` (< `RuntimeError`) if config missing
 - Documentation edits
 
 ## 2.0.0 - 2026-07-16
