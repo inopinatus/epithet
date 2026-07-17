@@ -17,6 +17,6 @@ epithet_initialize
 user_epithet = Epithet.new('user')
 
 id = Integer(ARGV.shift || 42)
-param = user_epithet.encode(id) #=> "user_KYM3B4d5ce1NNsv52rAoPg"
+param = user_epithet.encode(id)
 
 puts "User(#{user_epithet.decode(param)}) => #{param}"
