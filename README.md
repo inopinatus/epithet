@@ -47,9 +47,9 @@ user_epithet.decode(param)
 
 Configuration once at initialisation is recommended, because deriving key material from the passphrase uses scrypt, and is consequently expensive.  The `context:` is optional; this parameter is included when deriving the subkey material for obfuscating and tamper resistance, and may be used for separation of purpose or key rotation.  The scrypt step is seasoned by a salt, which defaults to a fixed constant; set an application-specific salt, as in the example above, so that two applications inadvertently sharing a passphrase never derive the same keys.
 
-Refer to the Epithet rdoc for the full set of configuration options.
+Refer to the [Epithet rdoc](https://inopinatus.github.io/epithet/) for the full set of configuration options.
 
-Note that `decode` returns `nil` when authentication fails, and raises `Epithet::FormatError` (an ArgumentError) on invalid formats.
+Note that `Epithet#decode` returns `nil` when authentication fails, and raises `Epithet::FormatError` (an ArgumentError) on invalid formats.
 
 ## Development
 

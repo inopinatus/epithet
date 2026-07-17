@@ -1,17 +1,18 @@
 # Epithet security
 
+This library is intended for high-performance obfuscation of integer sequences, deflection of casual
+tampering, and conversion to a compact, stable wire parameter format that is hard to guess and hard
+to predict.  Epithet forms a single-block deterministic PRP with an embedded truncated tag, and
+although it uses standard cryptographic primitives to do so, the design trade-off of the compact
+format means it is not intended to defeat nation-state security services, talented cryptographers,
+or even a well-resourced enterprise.
+
 ## Cryptographic considerations
 
 The primary construction is `AES-256-ECB(id(8B) + MSB_64(HMAC-SHA256(id)))` with the result base58
 encoded for transmission and a contextual prefix prepended.  Subkeys for AES and HMAC are by default
 derived with HKDF using an internal key generator that takes IKM from a passphrase via scrypt,
 salting generated keys by prefix and context and binding them by algorithm.
-
-This library is intended for high-performance obfuscation of integer sequences, deflection of casual
-tampering, and conversion to a compact, stable wire parameter format that is hard to guess and hard
-to predict.  Although it uses standard cryptographic primitives to do so, the design trade-off of
-the compact format means it is not intended to defeat nation-state security services, talented
-cryptographers, or even a well-resourced enterprise.
 
 An epithet should never be used as an authentication token, only as an object identifier.  The
 64-bit tag is shorter than the minimum RFC 2104 §5 recommends for message authentication, and the
@@ -38,7 +39,9 @@ decode a value exceeding the 128-bit block.
 A weak, guessable, or disclosed passphrase will compromise the obfuscation and tamper-detection
 properties.
 
-Use Epithet at your own risk.
+To sum up: neither the design nor implementation of this library has received an independent
+cryptographic review.  It leaks equality, offers a 64-bit forgery bound, and supplies no
+authorization or privacy boundary.  Use Epithet at your own risk.
 
 ## On seasoning
 
@@ -48,7 +51,7 @@ Secondly, for the HKDF extract phase to separate derived subkeys by some applica
 division such as purpose or rotation epoch.
 
 To avoid confusing the two uses, the HKDF salt is not referred to directly in Epithet's public API,
-and is instead derived from the context and prefix parameters that are documented instead.
+and is instead derived from the context and prefix parameters.
 
 Epithet does not store or verify passwords; the scrypt salt, and the context & prefix parameters
 used in the HKDF salt, are non-secret configuration and may be safely committed to source control.
