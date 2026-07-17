@@ -7,13 +7,16 @@ on:
     branches: [main]
 
 jobs:
+  # Truffleruby is in the matrix but jruby is not: jruby-openssl lacks
+  # OpenSSL::KDF.scrypt and Cipher#initialize_copy.  Lint runs on MRI only.
   test:
     name: test (${{ matrix.ruby }})
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
-        ruby: ["3.4", "4.0"]
+        ruby: ["3.4", "4.0", "truffleruby"]
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ruby/setup-ruby@003a5c4d8d6321bd302e38f6f0ec593f77f06600 # v1.319.0
@@ -21,7 +24,11 @@ jobs:
           ruby-version: ${{ matrix.ruby }}
           bundler-cache: true
       - run: bundle exec rake test
+        env:
+          EPITHET_TEST_THREADS: "16"
+          EPITHET_TEST_ROUNDS: "2000"
       - run: bundle exec rubocop
+        if: ${{ !startsWith(matrix.ruby, 'truffleruby') }}
 
   test-32bit:
     name: test (${{ matrix.ruby }} · 32-bit)
