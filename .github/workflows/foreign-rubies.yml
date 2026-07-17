@@ -1,0 +1,26 @@
+name: Foreign Rubies
+
+# Test on Truffleruby but not jruby now, jruby-openssl lacks OpenSSL::KDF.scrypt and
+# Cipher#initialize_copy.  No push trigger today.
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: test (${{ matrix.ruby }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        ruby: ["truffleruby"]
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+      - uses: ruby/setup-ruby@003a5c4d8d6321bd302e38f6f0ec593f77f06600 # v1.319.0
+        with:
+          ruby-version: ${{ matrix.ruby }}
+          bundler-cache: true
+      - run: bundle exec rake test
+        env:
+          EPITHET_TEST_THREADS: "16"
+          EPITHET_TEST_ROUNDS: "2000"
