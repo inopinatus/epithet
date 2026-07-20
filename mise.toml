@@ -1,20 +1,29 @@
 [tools]
-ruby = "4.0"
+actionlint = "latest"
+java = "latest"
+ruby = ["4.0", "3.4", "jruby", "truffleruby"]
+shellcheck = "latest"
 
 [tasks.test]
 run = "bundle exec rake test"
 
 [tasks.matrix]
 run = [
-  "mise exec ruby@3.4 -- bundle install",
+  "mise exec ruby@3.4 -- bundle install --quiet",
   "mise exec ruby@3.4 -- bundle exec rake test",
-  "mise exec ruby@4.0 -- bundle install",
+  "mise exec ruby@4.0 -- bundle install --quiet",
   "mise exec ruby@4.0 -- bundle exec rake test",
-  "bundle exec rubocop"
+  "mise exec ruby@jruby -- bundle install --quiet",
+  "mise exec ruby@jruby -- bundle exec rake test",
+  "RUBYOPT=--yjit mise exec ruby@4.0 -- bundle exec rake test",
+  "RUBYOPT=--zjit mise exec ruby@4.0 -- bundle exec rake test || echo 'zjit failed (advisory, ignored)'",
+  "mise exec ruby@truffleruby -- bundle install --quiet",
+  "mise exec ruby@truffleruby -- bundle exec rake test",
+  "bundle exec rubocop --cache false"
 ]
 
 [tasks.cop]
-run = "bundle exec rubocop"
+run = "bundle exec rubocop --cache false"
 
 [tasks.doc]
 run = "bundle exec rake rdoc && open doc/index.html"

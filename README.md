@@ -51,6 +51,10 @@ Refer to the [Epithet rdoc](https://inopinatus.github.io/epithet/) for the full 
 
 Note that `Epithet#decode` returns `nil` when authentication fails, and raises `Epithet::FormatError` (an ArgumentError) on invalid formats.
 
+## Platform support
+
+Epithet supports standard Ruby (aka MRI/CRuby), JRuby, and TruffleRuby.  It uses your platform's OpenSSL scrypt where available; on JRuby it falls back to the BouncyCastle provider bundled with jruby-openssl, and LibreSSL builds can fall back to the optional [scrypt gem](https://rubygems.org/gems/scrypt).  To use the latter gem provider, your application must bundle and require `scrypt` before Epithet, we won't require it on your behalf.  All three providers produce identical key material.  To force a provider without a capability check, pass its class in the scrypt parameters, e.g. `scrypt: { provider: Epithet::Scrypt::BouncyCastle }`; omit `provider:` to select one automatically.
+
 ## Development
 
 Install dependencies and run tests:

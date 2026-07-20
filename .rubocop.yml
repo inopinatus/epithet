@@ -7,10 +7,6 @@ Gemspec/DevelopmentDependencies:
   EnforcedStyle: gemspec
 
 Layout/EmptyLineAfterGuardClause:
-  Exclude:
-    - lib/epithet.rb
-
-Layout/MultilineMethodCallBraceLayout:
   Enabled: false
 
 Metrics/AbcSize:
@@ -29,9 +25,15 @@ Metrics/ClassLength:
   Exclude:
     - test/**/*.rb
 
+Layout/EmptyLineBetweenDefs:
+  AllowAdjacentOneLineDefs: true
+
 Naming/ConstantName:
   Exclude:
-    - lib/epithet.rb
+    - lib/epithet/block58.rb
+
+Naming/AsciiIdentifiers:
+  AsciiConstants: false
 
 Naming/MethodParameterName:
   MinNameLength: 1
@@ -59,26 +61,20 @@ Style/NumberedParametersLimit:
 Style/NumericPredicate:
   Enabled: false
 
+Style/TrailingCommaInHashLiteral:
+  Enabled: false
+
+Style/TrailingCommaInArrayLiteral:
+  Enabled: false
+
 Style/Semicolon:
   Exclude:
     - lib/epithet.rb
-
-Style/RedundantFetchBlock:
-  Exclude:
-    - examples/**/*.rb
 
 Style/CharacterLiteral:
   Exclude:
     - test/**/*.rb
 
 Style/StringConcatenation:
-  Exclude:
-    - test/**/*.rb
-
-Style/TrailingCommaInArrayLiteral:
-  Exclude:
-    - test/**/*.rb
-
-Style/TrailingCommaInHashLiteral:
   Exclude:
     - test/**/*.rb
