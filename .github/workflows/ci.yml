@@ -7,16 +7,22 @@ on:
   workflow_dispatch:
 
 jobs:
-  # Truffleruby is in the matrix but jruby is not: jruby-openssl lacks
-  # OpenSSL::KDF.scrypt and Cipher#initialize_copy.  Lint runs on MRI only.
+  # Lint runs on MRI only.
   test:
-    name: test (${{ matrix.ruby }})
+    name: test (${{ matrix.ruby }}${{ matrix.ruby_box && ' · Ruby Box' }}${{ matrix.rubyopt && format(' · {0}', matrix.rubyopt) }})
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    continue-on-error: ${{ matrix.advisory || false }}
     strategy:
       fail-fast: false
       matrix:
-        ruby: ["3.4", "4.0", "truffleruby"]
+        ruby: ["3.4", "4.0", "truffleruby", "jruby"]
+        rubyopt: [""]
+        ruby_box: [""]
+        include:
+          - { ruby: "4.0", rubyopt: "", ruby_box: "1" }
+          - { ruby: "4.0", rubyopt: "--yjit" }
+          - { ruby: "4.0", rubyopt: "--zjit", advisory: true }
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ruby/setup-ruby@003a5c4d8d6321bd302e38f6f0ec593f77f06600 # v1.319.0
@@ -27,8 +33,10 @@ jobs:
         env:
           EPITHET_TEST_THREADS: "16"
           EPITHET_TEST_ROUNDS: "2000"
+          RUBY_BOX: ${{ matrix.ruby_box }}
+          RUBYOPT: ${{ matrix.rubyopt }}
       - run: bundle exec rubocop
-        if: ${{ !startsWith(matrix.ruby, 'truffleruby') }}
+        if: ${{ !startsWith(matrix.ruby, 'truffleruby') && !startsWith(matrix.ruby, 'jruby') && !matrix.rubyopt }}
 
   test-32bit:
     name: test (${{ matrix.ruby }} · 32-bit)

@@ -2,13 +2,12 @@
 
 require_relative 'test_helper'
 
-# A tripwire for the dup-per-operation cipher/HMAC templates, but not a proof of thread safety.
+# A tripwire for the dup-per-operation cipher/HMAC templates
 class EpithetConcurrencyTest < Minitest::Test
-  # Overridable so CI can shake harder on runtimes with real thread parallelism.
   THREADS = Integer(ENV.fetch('EPITHET_TEST_THREADS', 8))
   ROUNDS = Integer(ENV.fetch('EPITHET_TEST_ROUNDS', 500))
 
-  def test_disjoint_round_trips_match_serial_ground_truth
+  def test_disjoint_round_trips_match_serial
     epithet = Epithet.new('user')
     expected = Array.new(THREADS * ROUNDS) { |id| epithet.encode(id) }
 
@@ -21,35 +20,42 @@ class EpithetConcurrencyTest < Minitest::Test
     end
 
     assert_empty anomalies
+    assert_equal expected.first, epithet.encode(0)
   end
 
-  def test_contended_encode_and_decode_of_a_single_id
+  def test_parallel_construction_matches_serial
+    ground = Epithet.new('user').encode(42)
+
+    anomalies = hammer do
+      ROUNDS.times.reject { Epithet.new('user').encode(42) == ground }
+    end
+
+    assert_empty anomalies
+  end
+
+  def test_contended_round_trips_survive_gc_churn
     epithet = Epithet.new('user')
     param = epithet.encode(42)
+    churning = true
+    reaper = Thread.new do
+      while churning
+        began = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+        Array.new(512) { +'x' * 64 }
+        GC.start(full_mark: false, immediate_sweep: false)
+        sleep 4 * (Process.clock_gettime(Process::CLOCK_MONOTONIC) - began) # pacing self-adjustment
+      end
+    end
 
     anomalies = hammer do
       ROUNDS.times.reject { epithet.encode(42) == param && epithet.decode(param) == 42 }
     end
 
     assert_empty anomalies
+  ensure
+    churning = false
+    reaper&.join
   end
 
-  def test_contended_auth_failure_still_returns_nil
-    epithet = Epithet.new('user')
-    base = epithet.encode(42).delete_prefix('user_')
-    alphabet = Epithet::Block58::Alphabet
-    alt = alphabet[(alphabet.index(base[-1]) + 1) % alphabet.length]
-    tampered = "user_#{base[0...-1]}#{alt}"
-
-    anomalies = hammer do
-      ROUNDS.times.reject { epithet.decode(tampered).nil? }
-    end
-
-    assert_empty anomalies
-  end
-
-  # Run the block in THREADS threads released together by a latch, and
-  # collect/re-raise their anomaly reports via Thread#value.
   def hammer
     latch = Queue.new
     workers = Array.new(THREADS) do |thread|

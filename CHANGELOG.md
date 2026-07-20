@@ -2,9 +2,14 @@
 
 ## Unreleased
 
-- Freeze prefix strings before use
+## 2.1.0.pre - 2026-07-21
+
+- Add support for JRuby and TruffleRuby
+- Support multiple scrypt providers (OpenSSL, BouncyCastle, and the `scrypt` gem)
 - Raise `Epithet::ConfigurationError` (< `RuntimeError`) if config missing
-- Unknown cipher/digest names raise `ArgumentError`
+- Unknown cipher/digest names now raise `ArgumentError`
+- Internal reorganisation into separate files
+- Robustness improvements inc. broader CI coverage & concurrency hammer
 - Documentation edits
 
 ## 2.0.0 - 2026-07-16

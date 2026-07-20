@@ -11,6 +11,34 @@ class EpithetTest < Minitest::Test
     assert_equal id, epithet.decode(param)
   end
 
+  def test_prebuilt_instance_survives_fork
+    skip 'no Process.fork on this runtime' unless Process.respond_to?(:fork)
+
+    epithet = Epithet.new('user')
+    param = epithet.encode(42)
+    reader, writer = IO.pipe
+
+    pid = begin
+      Process.fork do
+        reader.close
+        writer.write(epithet.encode(42) == param && epithet.decode(param) == 42 ? 'intact' : 'anomalous')
+      ensure
+        writer.close
+        exit!(0)
+      end
+    rescue NotImplementedError
+      skip 'Process.fork is not implemented on this runtime'
+    end
+
+    writer.close
+    verdict = reader.read
+    Process.wait(pid)
+
+    assert_equal 'intact', verdict
+  ensure
+    [reader, writer].compact.reject(&:closed?).each(&:close)
+  end
+
   def test_decode_returns_nil_on_auth_failure
     epithet = Epithet.new('user')
     param = epithet.encode(42)
@@ -250,9 +278,17 @@ class EpithetTest < Minitest::Test
     assert_equal a.encode(42), salted['app-a'].encode(42)
   end
 
-  def test_scrypt_length_is_invariant
-    assert_raises(ArgumentError) { Epithet::Config.new(passphrase: 'pw', scrypt: { length: 0 }) }
-    assert_raises(ArgumentError) { Epithet::Keygen.new(passphrase: 'pw', scrypt: { length: 64 }) }
+  # Just because you can, doesn't mean you should.
+  def test_scrypt_length_is_configurable
+    short = Epithet::Keygen.new(passphrase: 'pw', scrypt: { N: 1 << 4, length: 16 })
+    long = Epithet::Keygen.new(passphrase: 'pw', scrypt: { N: 1 << 4 })
+
+    refute_equal short.generate('info', 'salt', 32), long.generate('info', 'salt', 32)
+  end
+
+  def test_scrypt_rejects_unknown_option
+    keygen_error = assert_raises(ArgumentError) { Epithet::Keygen.new(passphrase: 'pw', scrypt: { n: 1 << 4 }) }
+    assert_match(/unknown keyword: :n/, keygen_error.message)
   end
 
   def test_config_requires_a_key_source
