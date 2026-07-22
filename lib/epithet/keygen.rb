@@ -10,6 +10,7 @@ class Epithet
     #
     # ```ruby
     # DEFAULT_SCRYPT_PARAMS = {
+    #   provider: Epithet::Scrypt,
     #   salt: 'epithet-default',
     #   N: 1 << 17,
     #   r: 8,
@@ -18,6 +19,7 @@ class Epithet
     # }.freeze
     # ```
     DEFAULT_SCRYPT_PARAMS = {
+      provider: Epithet::Scrypt,
       salt: 'epithet-default',
       N: 1 << 17,
       r: 8,
@@ -34,8 +36,8 @@ class Epithet
     #       scrypt: { salt: "#{MyApp.name}/#{MyApp.env}" }
     #     )
     #
-    # A scrypt provider will be chosen by `Epithet::Scrypt.auto`.  To override automatic selection
-    # and use a specific scrypt provider, pass it as `provider` in the scrypt parameters:
+    # A scrypt provider will be chosen by `Epithet::Scrypt`.  To override automatic selection
+    # and use a specific scrypt provider class, pass it as `provider` in the scrypt parameters:
     #
     #     kg = Epithet::Keygen.new(passphrase: 'pw', scrypt: { provider: Epithet::Scrypt::OpenSSL })
     #
@@ -61,7 +63,7 @@ class Epithet
 
     def build_scrypt(opts)
       params = DEFAULT_SCRYPT_PARAMS.merge(opts)
-      (params.delete(:provider) || Scrypt.auto).new(**params)
+      params.delete(:provider).new(**params)
     end
   end
 end

@@ -45,6 +45,7 @@ class Epithet
       def known = @known ||= []
       def register(klass) = known.unshift(klass)
       def auto = known.detect(&:auto?)
+      def new(...) = auto.new(...)
     end
 
     # Define contract params & last resort behaviour.
