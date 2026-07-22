@@ -41,9 +41,7 @@ class Epithet
     #
     # but this should be unnecessary in the common case.
     def initialize(ikm: nil, passphrase: nil, digest: 'sha256', scrypt: {})
-      unless passphrase.nil? ^ ikm.nil?
-        raise ArgumentError, 'keygen requires either ikm or passphrase'
-      end
+      raise ArgumentError, 'keygen requires either ikm or passphrase' unless passphrase.nil? ^ ikm.nil?
 
       @ikm = (ikm&.b || build_scrypt(Hash(scrypt)).ikm(passphrase)).freeze
       @digest = -String(digest)
