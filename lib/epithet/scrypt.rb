@@ -3,28 +3,27 @@
 require 'openssl'
 
 class Epithet
-  # Provider registry & base class for the scrypt implementations.
+  # Provider registry & classes for the scrypt implementations.
   #
   # A scrypt provider is any class that can be instantiated with the scrypt
-  # parameters `salt`, `N`, `r`, `p`, and `length`, and an instance method
-  # `ikm(passphrase)` that derives the key material.  Subclassing
-  # Epithet::Scrypt::Base auto-registers the subclass as a provider.  Defining a
-  # class-level `auto?` predicate declares its willingness to be selected.
-  # Automatic selection takes the most recently registered willing provider.
+  # parameters `salt`, `N`, `r`, `p`, and `length`, an instance method
+  # `ikm(passphrase)` that derives the key material, and a predicate method
+  # `auto?` indicating willingness to operate.  Subclassing Epithet::Scrypt::Base
+  # auto-registers the subclass as a provider.  Automatic selection takes the
+  # most recently registered willing provider.
   #
-  # The built-ins are declared in ascending preference, so automatic selection
-  # prefers `OpenSSL::KDF.scrypt` when the platform supplies it, then JRuby's
-  # BouncyCastle implementation, and finally an already-loaded
-  # [`scrypt`](https://rubygems.org/gems/scrypt) gem.  If none is available,
-  # selection falls through to `Base` itself, which raises `NotImplementedError` at
-  # the point of use.
+  # Of the builtin providers, we prefer `OpenSSL::KDF.scrypt` when the platform
+  # supplies it, then JRuby's BouncyCastle implementation, and finally an
+  # already-loaded [`scrypt`](https://rubygems.org/gems/scrypt) gem.  If none of
+  # these are available, selection falls through to a base class which raises
+  # `NotImplementedError` at the point of use.
   #
   # Epithet deliberately does not require the optional `scrypt` gem itself; an
   # application relying on the SCryptGem provider must bundle and require `scrypt`
   # before requiring `epithet`.
   #
-  # Consumers of this gem may register their own scrypt provider via the same
-  # pattern, even after Epithet has loaded:
+  # You may register a custom scrypt provider via the same pattern, even after
+  # Epithet has loaded:
   #
   #     class MyProvider < Epithet::Scrypt::Base
   #       def ikm(passphrase)
@@ -32,11 +31,14 @@ class Epithet
   #       end
   #     end
   #
-  # Your `ikm` method should return `length` bytes of high-entropy IKM.
+  # and this will be unconditionally preferred unless you also define a selective
+  # `auto?` method.
+  #
+  # Your `ikm` method should return `length` bytes of key material.
   #
   # Using this mechanism as a hook to deviate from the scrypt algorithm is not
   # recommended; the better move would be to substitute a variant key
-  # generator in the `Epithet::Config` parameters, or supply raw IKM to an
+  # generator in the `Epithet::Config` parameters, or supply IKM to an
   # `Epithet::Keygen`.
   module Scrypt
     class << self
