@@ -9,7 +9,7 @@ on:
 jobs:
   # Lint runs on MRI only.
   test:
-    name: test (${{ matrix.ruby }}${{ matrix.rubyopt && format(' · {0}', matrix.rubyopt) }})
+    name: test (${{ matrix.ruby }}${{ matrix.ruby_box && ' · Ruby Box' }}${{ matrix.rubyopt && format(' · {0}', matrix.rubyopt) }})
     runs-on: ubuntu-latest
     timeout-minutes: 10
     continue-on-error: ${{ matrix.advisory || false }}
@@ -18,7 +18,9 @@ jobs:
       matrix:
         ruby: ["3.4", "4.0", "truffleruby", "jruby"]
         rubyopt: [""]
+        ruby_box: [""]
         include:
+          - { ruby: "4.0", rubyopt: "", ruby_box: "1" }
           - { ruby: "4.0", rubyopt: "--yjit" }
           - { ruby: "4.0", rubyopt: "--zjit", advisory: true }
     steps:
@@ -31,6 +33,7 @@ jobs:
         env:
           EPITHET_TEST_THREADS: "16"
           EPITHET_TEST_ROUNDS: "2000"
+          RUBY_BOX: ${{ matrix.ruby_box }}
           RUBYOPT: ${{ matrix.rubyopt }}
       - run: bundle exec rubocop
         if: ${{ !startsWith(matrix.ruby, 'truffleruby') && !startsWith(matrix.ruby, 'jruby') && !matrix.rubyopt }}

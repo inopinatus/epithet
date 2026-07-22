@@ -4,15 +4,14 @@ require 'bundler/setup'
 require 'bundler/gem_tasks'
 require 'rake/testtask'
 
-task :enable_ruby_box do
-  next unless defined?(Ruby::Box)
+task :configure_ruby_box do
+  next unless defined?(Ruby::Box) && Ruby::Box.enabled?
 
-  ENV['RUBY_BOX'] = '1'
   ENV['RUBYOPT'] = [ENV.fetch('RUBYOPT', nil), '--disable-gems'].compact.join(' ')
 end
 
 Rake::TestTask.new do |t|
-  t.deps << :enable_ruby_box
+  t.deps << :configure_ruby_box
   t.libs << 'lib'
   t.libs << 'test'
   t.test_files = FileList['test/**/*_test.rb']

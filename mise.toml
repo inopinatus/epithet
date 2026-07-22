@@ -13,6 +13,7 @@ run = [
   "mise exec ruby@3.4 -- bundle exec rake test",
   "mise exec ruby@4.0 -- bundle install --quiet",
   "mise exec ruby@4.0 -- bundle exec rake test",
+  "RUBY_BOX=1 mise exec ruby@4.0 -- bundle exec rake test",
   "mise exec ruby@jruby -- bundle install --quiet",
   "mise exec ruby@jruby -- bundle exec rake test",
   "RUBYOPT=--yjit mise exec ruby@4.0 -- bundle exec rake test",
