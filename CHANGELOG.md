@@ -1,8 +1,6 @@
 # Changelog
 
-## Unreleased
-
-## 2.1.0.pre - 2026-07-21
+## 2.1.0 - 2026-07-23
 
 - Add support for JRuby and TruffleRuby
 - Support multiple scrypt providers (OpenSSL, BouncyCastle, and the `scrypt` gem)
