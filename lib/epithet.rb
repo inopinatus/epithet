@@ -153,6 +153,7 @@ class Epithet
     #
     # If passing an existing key generator, the object must respond to `generate(info, salt, length)`
     # and return a byte string suitable for use with OpenSSL cryptographic primitives.
+    # Configuration sharing means an alternative keygen must support concurrent `generate` calls.
     #
     # See [`SECURITY.md`](SECURITY.md) for discussion of ciphers & digests.
     #

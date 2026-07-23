@@ -44,7 +44,7 @@ class ScryptTest < Minitest::Test
     assert_equal implicit.generate('info', 'salt', 32), explicit.generate('info', 'salt', 32)
   end
 
-  def test_late_registration_wins_automatic_selection
+  def test_late_explicit_registration_wins_automatic_selection
     skip 'Ruby::Box is not enabled' unless defined?(Ruby::Box) && Ruby::Box.enabled?
 
     box = Ruby::Box.new
@@ -55,6 +55,9 @@ class ScryptTest < Minitest::Test
         def ikm(passphrase) = "\\xAB".b * length
       end
     RUBY
+
+    refute_includes box::Epithet::Scrypt.providers, box::ConstantIKM
+    box::Epithet::Scrypt.register(box::ConstantIKM)
 
     expected = OpenSSL::KDF.hkdf("\xAB".b * 32, hash: 'sha256', info: 'info', salt: 'salt', length: 16)
     assert_equal expected, box.eval('Epithet::Keygen.new(passphrase: "sekrit").generate("info", "salt", 16)')

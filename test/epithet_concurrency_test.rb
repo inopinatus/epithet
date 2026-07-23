@@ -36,9 +36,8 @@ class EpithetConcurrencyTest < Minitest::Test
   def test_contended_round_trips_survive_gc_churn
     epithet = Epithet.new('user')
     param = epithet.encode(42)
-    churning = true
     reaper = Thread.new do
-      while churning
+      loop do
         began = Process.clock_gettime(Process::CLOCK_MONOTONIC)
         Array.new(512) { +'x' * 64 }
         GC.start(full_mark: false, immediate_sweep: false)
@@ -52,8 +51,7 @@ class EpithetConcurrencyTest < Minitest::Test
 
     assert_empty anomalies
   ensure
-    churning = false
-    reaper&.join
+    reaper&.kill&.join
   end
 
   def hammer
