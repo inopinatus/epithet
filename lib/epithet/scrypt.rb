@@ -73,8 +73,8 @@ class Epithet
     #
     # ### `BouncyCastle` class
     #
-    # The JRuby fallback.  JRuby's `openssl` is a BouncyCastle wrapper, but does
-    # not expose BouncyCastle's scrypt, so this provider invokes it directly.
+    # JRuby's `openssl` is a BouncyCastle wrapper, but does not expose
+    # BouncyCastle's scrypt, so this provider invokes it directly.
     #
     # ### `SCryptGem` class
     #
