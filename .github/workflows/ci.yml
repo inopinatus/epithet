@@ -38,6 +38,27 @@ jobs:
       - run: bundle exec rubocop
         if: ${{ !startsWith(matrix.ruby, 'truffleruby') && !startsWith(matrix.ruby, 'jruby') && !matrix.rubyopt }}
 
+  test-libressl:
+    name: test (4.0 · OpenBSD/LibreSSL)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+      - name: test under LibreSSL-linked Ruby on OpenBSD
+        uses: vmactions/openbsd-vm@e6c68b637a12e83519688d115d57d5b0b53923cd # v1.4.6
+        with:
+          release: "7.9"
+          prepare: pkg_add ruby%4.0 ruby40-ffi
+          run: |
+            set -e
+            ruby40 -ropenssl -e '
+              puts RUBY_DESCRIPTION, OpenSSL::OPENSSL_VERSION
+              abort "expected LibreSSL on OpenBSD" unless OpenSSL::OPENSSL_VERSION.include?("LibreSSL")
+              abort "unexpected presence of OpenSSL::KDF.scrypt" if OpenSSL::KDF.respond_to?(:scrypt)
+            '
+            gem40 install --no-document scrypt minitest rake
+            ruby40 -w -Ilib -Itest -e 'Dir.glob("test/**/*_test.rb") { |f| require File.expand_path(f) }'
+
   test-32bit:
     name: test (${{ matrix.ruby }} · 32-bit)
     runs-on: ubuntu-latest
