@@ -2,12 +2,6 @@
 
 require_relative 'test_helper'
 
-begin
-  require 'scrypt'
-rescue LoadError
-  # will be skipped on this platform
-end
-
 # Scrypt provider selection
 class ScryptTest < Minitest::Test
   CHEAP = { salt: 'scrypt-test', N: 16, r: 2, p: 1, length: 32 }.freeze
@@ -33,6 +27,15 @@ class ScryptTest < Minitest::Test
     box.require('epithet')
 
     assert_same box::Epithet::Scrypt::SCryptGem, box::Epithet::Scrypt.auto
+  end
+
+  # Skip guards should be negative on OpenBSD+LibreSSL w/scrypt installed
+  def test_real_scrypt_gem_fallback
+    skip 'OpenSSL::KDF.scrypt exists on this platform' if OpenSSL::KDF.respond_to?(:scrypt)
+    skip 'BouncyCastle is preferred on JRuby' if RUBY_ENGINE == 'jruby'
+    skip 'scrypt gem not bundled' unless defined?(::SCrypt::Engine)
+
+    assert_same Epithet::Scrypt::SCryptGem, Epithet::Scrypt.auto
   end
 
   def test_explicit_provider_parameter_matches_preferred_automatic_selection
