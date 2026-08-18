@@ -18,16 +18,18 @@ Rake::TestTask.new do |t|
   t.warning = true
 end
 
+require_relative 'tasks/rdoc_generator'
 require 'rdoc/task'
 
 RDoc::Task.new do |rdoc|
   rdoc.rdoc_files.include('README.md', 'CHANGELOG.md', 'SECURITY.md', 'lib/**/*.rb')
   rdoc.main = 'README.md'
   rdoc.rdoc_dir = 'doc'
-  rdoc.generator = 'aliki'
+  rdoc.generator = 'epithet'
   rdoc.title = 'Epithet RDoc'
   rdoc.markup = 'markdown'
   rdoc.options << '--show-hash'
+  rdoc.options << '--copy-files' << 'tasks/README_md.html'
 end
 
 task default: :test

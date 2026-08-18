@@ -41,6 +41,9 @@ Naming/MethodParameterName:
 Style/StringLiterals:
   EnforcedStyle: single_quotes
 
+Style/ParallelAssignment:
+  Enabled: false
+
 Style/CaseEquality:
   Enabled: false
 

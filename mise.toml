@@ -27,4 +27,4 @@ run = [
 run = "bundle exec rubocop --cache false"
 
 [tasks.doc]
-run = "bundle exec rake rdoc && open doc/index.html"
+run = "mise exec ruby@4.0 -- rm -rf doc && bundle exec rake rdoc && open doc/index.html"
