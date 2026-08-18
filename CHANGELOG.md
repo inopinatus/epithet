@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- RDoc & CI improvements
+
 ## 2.1.0 - 2026-07-23
 
 - Add support for JRuby and TruffleRuby
