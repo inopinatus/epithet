@@ -18,20 +18,16 @@ Rake::TestTask.new do |t|
   t.warning = true
 end
 
-begin
-  require 'rdoc/task'
+require 'rdoc/task'
 
-  RDoc::Task.new do |rdoc|
-    rdoc.rdoc_files.include('README.md', 'CHANGELOG.md', 'SECURITY.md', 'lib/**/*.rb')
-    rdoc.main = 'README.md'
-    rdoc.rdoc_dir = 'doc'
-    rdoc.generator = 'aliki'
-    rdoc.title = 'Epithet RDoc'
-    rdoc.markup = 'markdown'
-    rdoc.options << '--show-hash'
-  end
-rescue LoadError
-  # rdoc is absent on platforms that cannot build rbs (see Gemfile); no doc task there.
+RDoc::Task.new do |rdoc|
+  rdoc.rdoc_files.include('README.md', 'CHANGELOG.md', 'SECURITY.md', 'lib/**/*.rb')
+  rdoc.main = 'README.md'
+  rdoc.rdoc_dir = 'doc'
+  rdoc.generator = 'aliki'
+  rdoc.title = 'Epithet RDoc'
+  rdoc.markup = 'markdown'
+  rdoc.options << '--show-hash'
 end
 
 task default: :test
